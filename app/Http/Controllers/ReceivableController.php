@@ -59,13 +59,13 @@ class ReceivableController extends Controller
 
     public function create(): View
     {
-        $frecuencia = PaymentFrequency::Semanal;
+        $frecuencia = PaymentFrequency::Mensual;
 
         return view('receivables.create', [
             'clients' => Client::query()->active()->orderBy('nombre')->get(),
             'frecuenciaDefault' => $frecuencia,
             'fechaDesembolso' => now()->toDateString(),
-            'fechaPrimerPago' => $frecuencia->addTo(now())->toDateString(),
+            'fechaPrimerPago' => now()->addMonthNoOverflow()->toDateString(),
             'tasaDefault' => (float) config('cuentas.tasa_interes_default', 8),
             'tasaMoraDefault' => (float) config('cuentas.tasa_mora_default', 5),
         ]);

@@ -9,10 +9,12 @@ use Illuminate\Support\Carbon;
 class AmortizationService
 {
     /**
-     * Genera el plan de pagos con la misma lógica del archivo plandepago.xlsx:
-     * interés de cada cuota = saldo pendiente * (tasa anual / 365).
+     * Genera el plan de pagos con la lógica de amortización de interesmoratorio.xlsx:
+     * tasa mensual = tasa anual / 12, cuota = PMT y vencimientos mensuales
+     * anclados al día del primer pago (equivalente a EDATE).
      *
-     * El valor de la cuota se obtiene con la función PMT.
+     * Las frecuencias semanal, bisemanal y quincenal se conservan solo para
+     * contratos heredados; no alteran el cálculo del plan.
      *
      * @return array{
      *     cuota: float,
@@ -34,27 +36,20 @@ class AmortizationService
         $tasaInteresAnual = round($tasaInteresAnual, 2);
         $plazo = max(1, $frecuencia->isSinglePayment() ? 1 : $plazo);
 
-        $tasaPeriodo = $tasaInteresAnual / 100 / 365;
+        $tasaPeriodo = $tasaInteresAnual / 100 / 12;
 
         $pago = $tasaPeriodo > 0
             ? ($monto * $tasaPeriodo) / (1 - pow(1 + $tasaPeriodo, -$plazo))
             : $monto / $plazo;
 
         $saldo = $monto;
-        $fecha = Carbon::parse($fechaPrimerPago)->startOfDay();
-        $fechaAnterior = null;
+        $fechaBase = Carbon::parse($fechaPrimerPago)->startOfDay();
         $interesTotal = 0.0;
         $totalPagar = 0.0;
         $rows = [];
 
         for ($numero = 1; $numero <= $plazo; $numero++) {
-            $fechaVencimiento = match (true) {
-                $numero === 1 => $fecha->copy(),
-                // Los pagos mensuales conservan el día del primer vencimiento
-                // y se ajustan al último día del mes cuando no existe.
-                $frecuencia === PaymentFrequency::Mensual => $fecha->copy()->addMonthsNoOverflow($numero - 1),
-                default => $frecuencia->addTo($fechaAnterior),
-            };
+            $fechaVencimiento = $fechaBase->copy()->addMonthsNoOverflow($numero - 1);
 
             $interes = round($saldo * $tasaPeriodo, 2);
             $capital = $numero === $plazo
@@ -85,7 +80,6 @@ class AmortizationService
 
             $interesTotal += $interes;
             $totalPagar += $montoCuota;
-            $fechaAnterior = $fechaVencimiento;
         }
 
         return [

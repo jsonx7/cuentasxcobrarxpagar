@@ -2,7 +2,7 @@
 
 @section('title', 'Nuevo contrato por cobrar')
 @section('heading', 'Nuevo contrato por cobrar')
-@section('subheading', 'Define el cliente, el monto, el plazo y la frecuencia para generar el plan de pagos.')
+@section('subheading', 'Define el cliente, el monto y el plazo en meses para generar el plan de pagos.')
 
 @section('content')
     @php
@@ -32,7 +32,7 @@
                 'tasa' => old('tasa_interes_anual', $tasaDefault ?? config('cuentas.tasa_interes_default', 8)),
                 'tasaMora' => $tasaMoraInicial,
                 'plazo' => old('plazo', 30),
-                'frecuencia' => old('frecuencia', $frecuenciaDefault?->value ?? 'semanal'),
+                'frecuencia' => old('frecuencia', $frecuenciaDefault?->value ?? 'mensual'),
                 'fechaDesembolso' => old('fecha_desembolso', $fechaDesembolso),
                 'fechaPrimerPago' => old('fecha_primer_pago', $fechaPrimerPago),
                 'clienteId' => $clienteInicial,
@@ -45,7 +45,7 @@
                     <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div class="border-b border-slate-100 px-5 py-4">
                             <h2 class="text-sm font-semibold text-slate-800">Datos del contrato</h2>
-                            <p class="text-xs text-slate-500">El interés se calcula por día: saldo × tasa anual ÷ 365.</p>
+                            <p class="text-xs text-slate-500">El interés se calcula por mes: saldo × tasa anual ÷ 12.</p>
                         </div>
 
                         <div class="grid gap-5 p-5 sm:grid-cols-2">
@@ -103,16 +103,17 @@
                                         <option value="{{ $value }}">{{ $label }}</option>
                                     @endforeach
                                 </select>
+                                <p class="mt-1 text-xs text-slate-400">El plan se genera con vencimientos mensuales; el pago único crea una sola cuota.</p>
                                 <x-input-error name="frecuencia" />
                             </div>
 
                             <div>
                                 <label for="plazo" class="block text-sm font-medium text-slate-700">
-                                    Número de cuotas <span class="text-rose-500" x-show="!isSingle">*</span>
+                                    Plazo en meses <span class="text-rose-500" x-show="!isSingle">*</span>
                                 </label>
                                 <input id="plazo" name="plazo" type="number" min="1" max="520" x-model="plazo" x-bind:disabled="isSingle" x-bind:readonly="isSingle"
                                     class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
-                                <p class="mt-1 text-xs text-slate-400" x-show="isSingle">Con pago único el plazo siempre es 1.</p>
+                                <p class="mt-1 text-xs text-slate-400" x-show="isSingle">Con pago único el plazo siempre es 1 mes.</p>
                                 <x-input-error name="plazo" />
                             </div>
 
@@ -127,7 +128,7 @@
                                 <label for="fecha_primer_pago" class="block text-sm font-medium text-slate-700">Primera fecha de pago <span class="text-rose-500">*</span></label>
                                 <input id="fecha_primer_pago" name="fecha_primer_pago" type="date" x-model="fechaPrimerPago" required
                                     class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                                <p class="mt-1 text-xs text-slate-400">Se sugiere automáticamente según la frecuencia.</p>
+                                <p class="mt-1 text-xs text-slate-400">Se sugiere automáticamente un mes después del desembolso.</p>
                                 <x-input-error name="fecha_primer_pago" />
                             </div>
 
@@ -193,7 +194,7 @@
                             <p class="text-xs font-medium uppercase tracking-wide text-indigo-200">Cuota estimada</p>
                             <p class="mt-1 text-2xl font-semibold" x-text="money(summary.cuota)"></p>
                             <p class="mt-1 text-xs text-indigo-200">
-                                <span x-text="frecuencia === 'unico' ? 'Pago único' : frecuencia === 'semanal' ? 'Cada 7 días' : frecuencia === 'bisemanal' ? 'Cada 14 días' : frecuencia === 'quincenal' ? 'Cada 15 días' : 'Cada mes'"></span>
+                                <span x-text="frecuencia === 'unico' ? 'Pago único' : 'Cada mes'"></span>
                             </p>
                         </div>
                         <dl class="divide-y divide-slate-100 text-sm">
@@ -223,8 +224,9 @@
                     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <h2 class="text-sm font-semibold text-slate-800">Cómo se calcula</h2>
                         <ul class="mt-3 space-y-2 text-xs leading-relaxed text-slate-500">
-                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La cuota se obtiene con la función PMT usando la tasa diaria.</li>
-                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> El interés de cada cuota es el saldo pendiente × tasa anual ÷ 365.</li>
+                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La cuota se obtiene con PMT usando la tasa mensual (tasa anual ÷ 12).</li>
+                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> El interés de cada cuota es el saldo pendiente × tasa anual ÷ 12.</li>
+                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> Los vencimientos son mensuales y conservan el día del primer pago.</li>
                             <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La última cuota ajusta el saldo restante para cerrar el contrato.</li>
                             <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La mora se calcula aparte sobre el capital vencido, a 30 días por mes.</li>
                         </ul>

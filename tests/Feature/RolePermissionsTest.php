@@ -52,7 +52,7 @@ class RolePermissionsTest extends TestCase
             'monto' => 500,
             'tasa_interes_anual' => 8,
             'plazo' => 10,
-            'frecuencia' => PaymentFrequency::Semanal->value,
+            'frecuencia' => PaymentFrequency::Mensual->value,
             'fecha_desembolso' => '2026-01-01',
             'fecha_primer_pago' => '2026-01-08',
         ])->assertRedirect();

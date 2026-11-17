@@ -19,26 +19,6 @@ const parseDate = (value) => {
     return new Date(parts[0], parts[1] - 1, parts[2]);
 };
 
-const addFrequency = (date, frequency) => {
-    const next = new Date(date.getTime());
-
-    if (frequency === 'semanal') {
-        next.setDate(next.getDate() + 7);
-    } else if (frequency === 'bisemanal') {
-        next.setDate(next.getDate() + 14);
-    } else if (frequency === 'quincenal') {
-        next.setDate(next.getDate() + 15);
-    } else if (frequency === 'mensual') {
-        const day = next.getDate();
-        next.setDate(1);
-        next.setMonth(next.getMonth() + 1);
-        const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-        next.setDate(Math.min(day, lastDay));
-    }
-
-    return next;
-};
-
 const addMonthsAnchored = (date, months) => {
     const next = new Date(date.getFullYear(), date.getMonth() + months, 1);
     const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
@@ -72,7 +52,7 @@ document.addEventListener('alpine:init', () => {
         tasa: config.tasa ?? 8,
         tasaMora: config.tasaMora ?? 5,
         plazo: config.plazo ?? 30,
-        frecuencia: config.frecuencia ?? 'semanal',
+        frecuencia: config.frecuencia ?? 'mensual',
         fechaDesembolso: config.fechaDesembolso ?? '',
         fechaPrimerPago: config.fechaPrimerPago ?? '',
         clienteId: config.clienteId ?? '',
@@ -111,9 +91,9 @@ document.addEventListener('alpine:init', () => {
                 return [];
             }
 
-            const dia = tasa / 100 / 365;
-            const pago = dia > 0
-                ? (monto * dia) / (1 - Math.pow(1 + dia, -plazo))
+            const tasaPeriodo = tasa / 100 / 12;
+            const pago = tasaPeriodo > 0
+                ? (monto * tasaPeriodo) / (1 - Math.pow(1 + tasaPeriodo, -plazo))
                 : monto / plazo;
 
             let saldo = round2(monto);
@@ -124,20 +104,18 @@ document.addEventListener('alpine:init', () => {
                 fecha = parseDate(this.fechaDesembolso);
 
                 if (fecha && !this.isSingle) {
-                    fecha = addFrequency(fecha, this.frecuencia);
+                    fecha = addMonthsAnchored(fecha, 1);
                 }
             }
 
             const fechaBase = fecha ? new Date(fecha.getTime()) : null;
 
             for (let numero = 1; numero <= plazo; numero++) {
-                if (numero > 1 && fecha) {
-                    fecha = this.frecuencia === 'mensual' && fechaBase
-                        ? addMonthsAnchored(fechaBase, numero - 1)
-                        : addFrequency(fecha, this.frecuencia);
-                }
+                const fechaVencimiento = fechaBase
+                    ? addMonthsAnchored(fechaBase, numero - 1)
+                    : null;
 
-                const interes = round2(saldo * dia);
+                const interes = round2(saldo * tasaPeriodo);
                 let capital = numero === plazo ? saldo : round2(pago - interes);
 
                 if (capital > saldo) {
@@ -153,7 +131,7 @@ document.addEventListener('alpine:init', () => {
 
                 rows.push({
                     numero,
-                    fecha: formatDate(fecha),
+                    fecha: formatDate(fechaVencimiento),
                     cuota,
                     interes,
                     capital: round2(capital),
@@ -189,7 +167,7 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
 
-            const next = this.isSingle ? desembolso : addFrequency(desembolso, this.frecuencia);
+            const next = this.isSingle ? desembolso : addMonthsAnchored(desembolso, 1);
             const month = String(next.getMonth() + 1).padStart(2, '0');
             const day = String(next.getDate()).padStart(2, '0');
 

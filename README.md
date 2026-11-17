@@ -2,7 +2,7 @@
 
 Sistema de administración de **cuentas por cobrar** (clientes externos) y **cuentas por pagar** (proveedores), construido con **Laravel 13**, **PHP 8.3**, **MySQL/MariaDB**, **Tailwind CSS 4**, **Alpine.js 3**, **Vite 7** y **DomPDF**.
 
-UI, validaciones y mensajes en español. El plan de amortización replica `plandepago.xlsx` y la mora replica `interesmoratorio.xlsx`. El sistema inicia vacío: no trae importaciones de Excel ni el reporte "Cartera por fecha" del proyecto de préstamos.
+UI, validaciones y mensajes en español. El plan de amortización mensual y la mora replican `interesmoratorio.xlsx`. El sistema inicia vacío: no trae importaciones de Excel ni el reporte "Cartera por fecha" del proyecto de préstamos.
 
 ---
 
@@ -11,8 +11,8 @@ UI, validaciones y mensajes en español. El plan de amortización replica `pland
 - **Clientes**: nombre, DUI (`00000000-0`), NIT, teléfono, correo, dirección, notas y estado. Se pueden inactivar; no se eliminan si tienen contratos.
 - **Cuentas por cobrar (contratos)**:
   - Código automático `CR-{año}-{0001}`.
-  - Frecuencias: pago único, semanal (+7 días), bisemanal (+14 días), quincenal (+15 días) y mensual (sin desbordamiento de mes).
-  - Plan de amortización generado con la misma lógica de `plandepago.xlsx`, con vista previa en vivo.
+  - Frecuencias al crear: pago único y mensual. Los vencimientos se anclan al día del primer pago sin desbordamiento de mes.
+  - Plan de amortización generado con la lógica mensual de `interesmoratorio.xlsx`, con vista previa en vivo.
   - Tasa de mora mensual configurable por contrato (por defecto 5 %).
   - Contratos inmutables: se crean, se cancelan o se eliminan (sin editar). Se puede imprimir en PDF.
 - **Abonos**:
@@ -35,22 +35,23 @@ UI, validaciones y mensajes en español. El plan de amortización replica `pland
 
 ---
 
-## Cálculo de intereses (igual que `plandepago.xlsx`)
+## Cálculo de la amortización (igual que `interesmoratorio.xlsx`)
 
-- Tasa periódica: `tasa_anual / 100 / 365`.
-- Cuota fija: `PMT(tasa_periódica, plazo, -monto)`.
-- Interés de cada cuota: `saldo_pendiente × tasa_periódica`.
+- Tasa periódica mensual: `tasa_anual / 100 / 12`.
+- Plazo: número de meses; cada mes genera una cuota.
+- Cuota fija: `PMT(tasa_mensual, plazo, -monto)`.
+- Interés de cada cuota: `saldo_pendiente × tasa_mensual`.
 - Abono a capital: `cuota - interés`; saldo final: `saldo_anterior - abono_capital`.
+- Vencimientos mensuales anclados al día del primer pago (`31/01 → 28/02 → 31/03`).
+- La última cuota ajusta el saldo restante para cerrar el contrato.
 
-Ejemplo de referencia (`monto = 1500`, `tasa = 8 %`, `plazo = 30`, `semanal`):
+Ejemplo de referencia (`monto = 1500`, `tasa = 8 %`, `plazo = 30 meses`):
 
 | Concepto        | Valor     |
 | --------------- | --------- |
-| Cuota           | `50.17`   |
-| Interés cuota 1 | `0.33`    |
-| Saldo cuota 1   | `1450.16` |
-
-Los pagos mensuales conservan el día del primer vencimiento y se ajustan al último día del mes cuando ese día no existe (`31/01 → 28/02 → 31/03`).
+| Cuota           | `55.33`   |
+| Interés cuota 1 | `10.00`   |
+| Saldo cuota 1   | `1454.67` |
 
 ---
 
@@ -192,7 +193,7 @@ app/
   Http/Requests/          Validaciones y normalización de DUI/montos
   Models/                 Client, Material, Supplier, Receivable, Installment, Payment, Payable, ...
   Services/
-    AmortizationService   Plan idéntico a plandepago.xlsx
+    AmortizationService   Plan mensual de interesmoratorio.xlsx
     MoraService           Mora de interesmoratorio.xlsx (5 % / 30, no capitalizada)
     ReceivableService     Contratos, abonos en dinero/materiales/mora y reversiones
     PayableService        Obligaciones y pagos directos

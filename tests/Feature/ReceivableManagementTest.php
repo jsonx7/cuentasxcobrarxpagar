@@ -38,7 +38,7 @@ class ReceivableManagementTest extends TestCase
             'tasa_interes_anual' => 8,
             'tasa_mora_mensual' => 5,
             'plazo' => 30,
-            'frecuencia' => PaymentFrequency::Semanal->value,
+            'frecuencia' => PaymentFrequency::Mensual->value,
             'fecha_desembolso' => '2026-01-01',
             'fecha_primer_pago' => '2026-01-08',
             'observaciones' => 'Contrato de prueba',
@@ -51,9 +51,10 @@ class ReceivableManagementTest extends TestCase
         $this->assertSame(ReceivableStatus::Activo, $receivable->estado);
         $this->assertCount(30, $receivable->installments);
         $this->assertEqualsWithDelta(1500, (float) $receivable->monto, 0.01);
-        $this->assertEqualsWithDelta(50.17, (float) $receivable->cuota, 0.01);
-        $this->assertEqualsWithDelta(0.33, (float) $receivable->installments()->orderBy('numero')->first()->interes, 0.001);
+        $this->assertEqualsWithDelta(55.33, (float) $receivable->cuota, 0.01);
+        $this->assertEqualsWithDelta(10.00, (float) $receivable->installments()->orderBy('numero')->first()->interes, 0.001);
         $this->assertSame('2026-01-08', $receivable->installments()->orderBy('numero')->first()->fecha_vencimiento->toDateString());
+        $this->assertSame('2026-02-08', $receivable->installments()->where('numero', 2)->firstOrFail()->fecha_vencimiento->toDateString());
     }
 
     #[Test]
@@ -67,7 +68,7 @@ class ReceivableManagementTest extends TestCase
             'monto' => 500,
             'tasa_interes_anual' => 8,
             'plazo' => 10,
-            'frecuencia' => PaymentFrequency::Semanal->value,
+            'frecuencia' => PaymentFrequency::Mensual->value,
             'fecha_desembolso' => '2026-01-01',
             'fecha_primer_pago' => '2026-01-08',
         ])->assertSessionHasErrors('client_id');

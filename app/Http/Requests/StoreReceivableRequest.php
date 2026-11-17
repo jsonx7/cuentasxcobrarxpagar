@@ -17,7 +17,7 @@ class StoreReceivableRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $frecuencia = (string) $this->input('frecuencia', PaymentFrequency::Semanal->value);
+        $frecuencia = (string) $this->input('frecuencia', PaymentFrequency::Mensual->value);
 
         $this->merge([
             'client_id' => $this->integer('client_id') ?: null,
@@ -78,8 +78,8 @@ class StoreReceivableRequest extends FormRequest
             'client_id.exists' => 'El cliente seleccionado no existe.',
             'monto.required' => 'El monto del contrato es obligatorio.',
             'monto.min' => 'El monto debe ser mayor que cero.',
-            'plazo.required' => 'Indica el número de cuotas.',
-            'plazo.min' => 'El plazo debe tener al menos una cuota.',
+            'plazo.required' => 'Indica el plazo en meses.',
+            'plazo.min' => 'El plazo debe tener al menos un mes.',
             'fecha_primer_pago.after_or_equal' => 'La primera fecha de pago no puede ser anterior al desembolso.',
             'tasa_interes_anual.max' => 'La tasa de interés no puede superar el 100%.',
             'tasa_mora_mensual.max' => 'La tasa de mora no puede superar el 100%.',
@@ -96,7 +96,7 @@ class StoreReceivableRequest extends FormRequest
             'monto' => 'monto',
             'tasa_interes_anual' => 'tasa de interés',
             'tasa_mora_mensual' => 'tasa de mora mensual',
-            'plazo' => 'número de cuotas',
+            'plazo' => 'plazo en meses',
             'frecuencia' => 'frecuencia de pago',
             'fecha_desembolso' => 'fecha de desembolso',
             'fecha_primer_pago' => 'primera fecha de pago',

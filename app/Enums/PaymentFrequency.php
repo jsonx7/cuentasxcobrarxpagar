@@ -64,15 +64,18 @@ enum PaymentFrequency: string
     }
 
     /**
-     * Opciones disponibles al crear un préstamo. La frecuencia personalizada
-     * solo se usa al importar planes existentes.
+     * Opciones disponibles al crear un contrato. El plan se genera siempre con
+     * vencimientos mensuales, así que solo se ofrecen pago único y mensual.
+     * Las demás frecuencias se conservan para contratos heredados.
      *
      * @return array<string, string>
      */
     public static function createOptions(): array
     {
-        return collect(self::cases())
-            ->reject(fn (self $frequency) => $frequency === self::Personalizada)
+        return collect([
+            self::Unico,
+            self::Mensual,
+        ])
             ->mapWithKeys(fn (self $frequency) => [$frequency->value => $frequency->label()])
             ->all();
     }

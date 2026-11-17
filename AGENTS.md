@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Sistema de cuentas por cobrar y pagar (Laravel 13 / PHP 8.3, MySQL, Vite 7, Tailwind 4, Alpine 3, DomPDF). UI, validaciones y mensajes en español. Las cuentas por cobrar son el espejo del módulo de préstamos, pero para **clientes externos** (no empleados). `plandepago.xlsx` es la referencia de cálculo del plan de amortización e `interesmoratorio.xlsx` la de la fórmula de mora. **No hay importación de Excel ni reporte "Cartera por fecha"**. El sistema inicia vacío.
+Sistema de cuentas por cobrar y pagar (Laravel 13 / PHP 8.3, MySQL, Vite 7, Tailwind 4, Alpine 3, DomPDF). UI, validaciones y mensajes en español. Las cuentas por cobrar son el espejo del módulo de préstamos, pero para **clientes externos** (no empleados). `interesmoratorio.xlsx` es la referencia tanto del plan de amortización mensual como de la fórmula de mora. **No hay importación de Excel ni reporte "Cartera por fecha"**. El sistema inicia vacío.
 
 ## Comandos
 
@@ -24,11 +24,11 @@ php artisan migrate:fresh --seed --force      # solo local: borra y recrea la BD
 
 ## Dominio y trampas
 
-- El plan de amortización sigue `plandepago.xlsx`: tasa periódica = `tasa_anual / 100 / 365`, cuota = PMT, interés = saldo pendiente × tasa periódica. No sustituirlo por una amortización estándar.
-- Regresión de referencia: `$1500`, 8 %, 30 cuotas semanales ⇒ cuota `50.17`, interés cuota 1 `0.33`, saldo `1450.16`.
-- Mensual se ancla al día del primer pago con `addMonthsNoOverflow` (`31/01 → 28/02 → 31/03`). Bisemanal = +14 días; quincenal = +15 días; no son equivalentes.
-- `resources/js/app.js` (`addFrequency`, `receivableForm.schedule`) duplica la lógica de `AmortizationService` para la vista previa. Cualquier cambio de fechas, redondeo o última cuota debe hacerse en ambos lados y cubrirse con tests.
-- Agregar una frecuencia: `app/Enums/PaymentFrequency.php` (case, label, `daysBetween`, `addTo`), `resources/js/app.js`, el texto "Cada X días" en `receivables/create.blade.php` y un test en `AmortizationServiceTest`. `createOptions()` excluye `personalizada`; esa frecuencia solo existe para planes irregulares heredados.
+- El plan de amortización sigue las tablas de `interesmoratorio.xlsx`: tasa periódica = `tasa_anual / 100 / 12`, cuota = PMT, interés = saldo pendiente × tasa periódica y vencimientos mensuales anclados al día del primer pago (`addMonthsNoOverflow`, equivalente a EDATE). Ya no se usa la tasa diaria de `plandepago.xlsx`.
+- Regresión de referencia: `$1500`, 8 %, 30 meses ⇒ cuota `55.33`, interés cuota 1 `10.00`, saldo `1454.67`. Otras regresiones del Excel: `$40000`, 9 %, 36 meses ⇒ cuota `1271.99`, interés 1 `300.00`, saldo `39028.01`; `$64509`, 10 %, 60 meses ⇒ capital cuota 1 `833.05`.
+- `createOptions()` solo ofrece `unico` y `mensual`. Los casos `semanal`, `bisemanal` y `quincenal` se conservan únicamente para contratos heredados; el servicio siempre genera fechas mensuales, aunque reciba una de esas frecuencias.
+- `resources/js/app.js` (`addMonthsAnchored`, `receivableForm.schedule`) duplica la lógica de `AmortizationService` para la vista previa. Cualquier cambio de fechas, redondeo o última cuota debe hacerse en ambos lados y cubrirse con tests.
+- Agregar una frecuencia al catálogo: `app/Enums/PaymentFrequency.php` (case, label, `daysBetween`, `addTo`), `resources/js/app.js`, los textos de `receivables/create.blade.php` y un test en `AmortizationServiceTest`. Para que aparezca en el formulario debe incluirse además en `createOptions()`; los planes generados siguen siendo mensuales. `personalizada` solo existe para planes irregulares heredados.
 - Los contratos por cobrar son inmutables: solo `create`, `cancel` y `destroy`; no existen `edit/update` (intencional, igual que en préstamos). Lo mismo aplica a las obligaciones por pagar. No agregarlos sin pedirlo.
 - Todo abono pasa por `ReceivableService::registerPayment` / `deletePayment` o por `PayableService::registerPayment` / `deletePayment`. Reparten con `payment_allocations` (`tipo='cuota'` o `tipo='mora'`) para poder revertir. **Nunca** modificar `monto_pagado`, `mora_pagada` ni borrar pagos directamente.
 - El saldo del contrato es `total_a_pagar - total_pagado` y solo considera cuotas (capital + intereses futuros). La mora es **independiente**: se calcula y se paga aparte, nunca se capitaliza ni se suma al capital del contrato.
