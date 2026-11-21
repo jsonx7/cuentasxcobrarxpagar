@@ -16,23 +16,6 @@
         $puedeCancelar = ! $receivable->isCancelado() && ! $receivable->isPagado();
     @endphp
 
-    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <a href="{{ route('receivables.index') }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-indigo-600">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
-            Volver a cuentas por cobrar
-        </a>
-
-        <div class="flex flex-wrap gap-2">
-            <a href="{{ route('receivables.pdf', $receivable) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                Plan en PDF
-            </a>
-            <button type="button" onclick="window.print()" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                Imprimir
-            </button>
-        </div>
-    </div>
-
     <div x-data="paymentModal({
         today: '{{ now()->toDateString() }}',
         defaultMethod: 'efectivo',
@@ -42,6 +25,29 @@
             'precio' => $material->precio,
         ])->values())
     })">
+        <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <a href="{{ route('receivables.index') }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-indigo-600">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+                Volver a cuentas por cobrar
+            </a>
+
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('receivables.pdf', $receivable) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    Plan en PDF
+                </a>
+                <button type="button" onclick="window.print()" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                    Imprimir
+                </button>
+                @if ($user?->canWrite() && ! $receivable->isCancelado() && $mora['pendiente'] > 0)
+                    <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500"
+                        @click="show({ monto: {{ $mora['pendiente'] }}, mora: {{ $mora['pendiente'] }} })">
+                        Cobrar mora pendiente
+                    </button>
+                @endif
+            </div>
+        </div>
+
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="bg-gradient-to-r from-slate-900 to-indigo-950 px-6 py-6 text-white">
                 <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -193,7 +199,7 @@
                     </div>
                 </div>
                 @if ($user?->canWrite())
-                    <button type="button" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500" @click="show({ id: {{ $siguiente->id }}, monto: {{ $siguiente->saldo }}, mora: {{ $moraPorCuota[$siguiente->id] ?? 0 }} })">
+                    <button type="button" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500" @click="show({ id: {{ $siguiente->id }}, monto: {{ $siguiente->saldo }} })">
                         Cobrar esta cuota
                     </button>
                 @endif
@@ -211,7 +217,7 @@
                     </button>
                 </div>
 
-                @if ($user?->canWrite() && ! $receivable->isCancelado() && $receivable->saldo_pendiente > 0)
+                @if ($user?->canWrite() && ! $receivable->isCancelado() && ($receivable->saldo_pendiente > 0 || $mora['pendiente'] > 0))
                     <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800" @click="show()">
                         Nuevo abono
                     </button>
@@ -250,9 +256,15 @@
                                 <td class="px-4 py-3"><x-status-badge :status="$installment->estado" /></td>
                                 @if ($user?->canWrite())
                                     <td class="px-4 py-3 text-right">
-                                        @if (! $installment->esta_pagada && ! $receivable->isCancelado())
-                                            <button type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50" @click="show({ id: {{ $installment->id }}, monto: {{ $installment->saldo }}, mora: {{ $moraPorCuota[$installment->id] ?? 0 }} })">
+                                        @if ($receivable->isCancelado())
+                                            —
+                                        @elseif (! $installment->esta_pagada)
+                                            <button type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50" @click="show({ id: {{ $installment->id }}, monto: {{ $installment->saldo }} })">
                                                 Cobrar
+                                            </button>
+                                        @elseif (($moraPorCuota[$installment->id] ?? 0) > 0)
+                                            <button type="button" class="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50" @click="show({ monto: {{ $moraPorCuota[$installment->id] }}, mora: {{ $moraPorCuota[$installment->id] }} })">
+                                                Cobrar mora
                                             </button>
                                         @endif
                                     </td>
@@ -279,7 +291,7 @@
                 @if ($receivable->payments->isEmpty())
                     <div class="p-5">
                         <x-empty-state title="Sin abonos registrados" description="Los abonos en dinero o materiales aparecerán aquí con su distribución por cuota.">
-                            @if ($user?->canWrite() && ! $receivable->isCancelado())
+                            @if ($user?->canWrite() && ! $receivable->isCancelado() && ($receivable->saldo_pendiente > 0 || $mora['pendiente'] > 0))
                                 <x-slot:action>
                                     <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500" @click="show()">Registrar primer abono</button>
                                 </x-slot:action>
@@ -386,7 +398,8 @@
                                 <input id="monto_mora" name="monto_mora" type="number" step="0.01" min="0" x-model.number="montoMora"
                                     class="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
                             </div>
-                            <p class="mt-1 text-xs text-slate-400">Mora pendiente del contrato: <x-money :value="$mora['pendiente']" /></p>
+                            <p class="mt-1 text-xs text-slate-400">Opcional. Se descuenta del total entregado; el resto se aplica a las cuotas. Puede pagarse aunque el préstamo esté saldado.</p>
+                            <p class="mt-1 text-xs font-medium text-rose-600">Pendiente hoy: <x-money :value="$mora['pendiente']" /></p>
                         </div>
 
                         <div>

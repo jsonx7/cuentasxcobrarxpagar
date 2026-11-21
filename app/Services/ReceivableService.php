@@ -232,6 +232,11 @@ class ReceivableService
                     continue;
                 }
 
+                // La base se toma antes de aplicar el abono. Si la cuota queda
+                // saldada, se guarda para que la mora siga contando días.
+                $baseCuota = $this->mora->base($installment);
+                $installment->mora_fecha_hasta = null;
+
                 $payment->allocations()->create([
                     'installment_id' => $installment->id,
                     'monto' => $aplicado,
@@ -239,6 +244,11 @@ class ReceivableService
                 ]);
 
                 $installment->monto_pagado = round((float) $installment->monto_pagado + $aplicado, 2);
+
+                if ($installment->saldo <= 0 && $baseCuota > 0) {
+                    $this->mora->guardarBase($installment, $baseCuota);
+                }
+
                 $installment->save();
 
                 $restante = round($restante - $aplicado, 2);
@@ -273,6 +283,7 @@ class ReceivableService
                     ]);
 
                     $installment->mora_pagada = round((float) $installment->mora_pagada + $aplicado, 2);
+                    $this->mora->cerrar($installment, $fechaPago);
                     $installment->save();
 
                     $moraRestante = round($moraRestante - $aplicado, 2);
@@ -311,6 +322,7 @@ class ReceivableService
                     );
                 }
 
+                $this->mora->sincronizarAlRevertir($installment);
                 $installment->save();
             }
 

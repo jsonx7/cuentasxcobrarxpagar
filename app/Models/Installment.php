@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'receivable_id', 'numero', 'fecha_vencimiento', 'monto', 'interes', 'capital',
     'saldo_pendiente', 'abono_extra', 'monto_pagado', 'mora_pagada',
+    'mora_base', 'mora_fecha_hasta',
 ])]
 class Installment extends Model
 {
@@ -33,6 +34,8 @@ class Installment extends Model
             'abono_extra' => 'decimal:2',
             'monto_pagado' => 'decimal:2',
             'mora_pagada' => 'decimal:2',
+            'mora_base' => 'decimal:4',
+            'mora_fecha_hasta' => 'date',
         ];
     }
 
@@ -90,5 +93,18 @@ class Installment extends Model
     public function scopeOverdue(Builder $query): Builder
     {
         return $query->pending()->whereDate('fecha_vencimiento', '<', today());
+    }
+
+    /**
+     * Incluye cuotas vencidas y cuotas ya pagadas que todavía tienen mora
+     * pendiente de cobro. El filtro exacto se aplica con MoraService.
+     */
+    public function scopeConMoraPendiente(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query) {
+            $query->overdue()
+                ->orWhereNotNull('mora_base')
+                ->orWhere('mora_pagada', '>', 0);
+        });
     }
 }

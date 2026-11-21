@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Reporte de cuotas vencidas</title>
+    <title>Reporte de cuotas con mora pendiente</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 9px; color: #1e293b; margin: 0; }
@@ -35,11 +35,11 @@
             <tr>
                 <td>
                     <span class="brand">CR</span>
-                    <h1 style="margin-top: 6px;">Reporte de cuotas vencidas</h1>
+                    <h1 style="margin-top: 6px;">Reporte de cuotas con mora pendiente</h1>
                     <p class="muted">{{ config('app.name') }}</p>
                 </td>
                 <td class="code">
-                    {{ $totales['cantidad'] }} cuota(s) vencida(s)<br>
+                    {{ $totales['cantidad'] }} cuota(s) con mora<br>
                     <span class="muted" style="font-weight: normal;">Generado el {{ now()->format('d/m/Y H:i') }}</span>
                 </td>
             </tr>
@@ -53,7 +53,7 @@
                 <span class="amount">${{ number_format($totales['monto'], 2) }}</span>
             </td>
             <td>
-                <span class="title">Cuotas vencidas</span>
+                <span class="title">Cuotas con mora</span>
                 <span class="amount">{{ $totales['cantidad'] }}</span>
             </td>
             <td>
@@ -98,7 +98,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="center muted" style="padding: 16px;">No hay cuotas vencidas para los filtros seleccionados.</td>
+                    <td colspan="10" class="center muted" style="padding: 16px;">No hay cuotas con mora pendiente para los filtros seleccionados.</td>
                 </tr>
             @endforelse
         </tbody>

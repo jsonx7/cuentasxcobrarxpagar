@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Cuotas vencidas')
-@section('heading', 'Cuotas vencidas')
-@section('subheading', 'Cuotas pendientes con fecha de vencimiento anterior a '.\Illuminate\Support\Carbon::today()->format('d/m/Y').'.')
+@section('title', 'Cuotas con mora pendiente')
+@section('heading', 'Cuotas con mora pendiente')
+@section('subheading', 'Cuotas vencidas o ya pagadas con mora pendiente al '.\Illuminate\Support\Carbon::today()->format('d/m/Y').'.')
 
 @section('content')
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -17,8 +17,8 @@
     </div>
 
     <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <x-stat-card label="Cuotas vencidas" :value="$totales['cantidad']" hint="Pendientes con fecha pasada" tone="rose" />
-        <x-stat-card label="Contratos afectados" :value="$totales['contratos']" hint="Cuentas por cobrar con cuotas vencidas" tone="indigo" />
+        <x-stat-card label="Cuotas con mora" :value="$totales['cantidad']" hint="Vencidas o ya pagadas" tone="rose" />
+        <x-stat-card label="Contratos afectados" :value="$totales['contratos']" hint="Cuentas por cobrar con mora pendiente" tone="indigo" />
         <x-stat-card label="Saldo vencido" :value="'$'.number_format($totales['monto'], 2)" hint="Capital + intereses pendientes" tone="amber" />
         <x-stat-card label="Mora pendiente" :value="'$'.number_format($totales['mora'], 2)" hint="Interés moratorio calculado" tone="slate" />
     </div>
@@ -71,7 +71,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-5 py-8 text-center text-slate-500">No hay cuotas vencidas con los filtros seleccionados.</td>
+                            <td colspan="10" class="px-5 py-8 text-center text-slate-500">No hay cuotas con mora pendiente con los filtros seleccionados.</td>
                         </tr>
                     @endforelse
                 </tbody>

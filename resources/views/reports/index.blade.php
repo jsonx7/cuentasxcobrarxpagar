@@ -9,7 +9,7 @@
         <x-stat-card label="Contratos activos" :value="$contratosActivos" hint="Cuentas por cobrar en estado activo" tone="indigo" />
         <x-stat-card label="Cartera total" :value="'$'.number_format($cartera, 2)" hint="Total a pagar de los contratos activos" tone="sky" />
         <x-stat-card label="Cuotas vencidas" :value="$cuotasVencidas" hint="Cuotas pendientes con fecha pasada" tone="rose" />
-        <x-stat-card label="Mora pendiente" :value="'$'.number_format($moraPendiente, 2)" hint="Interés moratorio calculado sobre cuotas vencidas" tone="amber" />
+        <x-stat-card label="Mora pendiente" :value="'$'.number_format($moraPendiente, 2)" hint="Calculada sobre cuotas vencidas o ya pagadas" tone="amber" />
         <x-stat-card label="Cobrado este mes" :value="'$'.number_format($cobradoMes, 2)" hint="Abonos registrados en el mes actual" tone="emerald" />
         <x-stat-card label="Pagado este mes" :value="'$'.number_format($pagadoMes, 2)" hint="Pagos a proveedores registrados en el mes actual" tone="slate" />
     </div>
@@ -28,8 +28,8 @@
             <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-600/10">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
             </div>
-            <h2 class="mt-4 text-lg font-semibold text-slate-900">Cuotas vencidas</h2>
-            <p class="mt-1 text-sm text-slate-500">Detalle de cuotas con fecha pasada, saldo pendiente y mora calculada por cliente.</p>
+            <h2 class="mt-4 text-lg font-semibold text-slate-900">Mora pendiente</h2>
+            <p class="mt-1 text-sm text-slate-500">Detalle de cuotas con saldo o mora pendiente, incluso si el préstamo ya está pagado.</p>
             <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-rose-600 group-hover:text-rose-700">Ver reporte <span aria-hidden="true">→</span></span>
         </a>
     </div>

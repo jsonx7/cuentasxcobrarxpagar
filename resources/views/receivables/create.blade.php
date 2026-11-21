@@ -228,7 +228,7 @@
                             <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> El interés de cada cuota es el saldo pendiente × tasa anual ÷ 12.</li>
                             <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> Los vencimientos son mensuales y conservan el día del primer pago.</li>
                             <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La última cuota ajusta el saldo restante para cerrar el contrato.</li>
-                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La mora se calcula aparte sobre el capital vencido, a 30 días por mes.</li>
+                            <li class="flex gap-2"><span class="mt-0.5 text-indigo-500">•</span> La mora se calcula aparte sobre el capital vencido, a 30 días por mes, y puede pagarse aunque se salde el préstamo.</li>
                         </ul>
                     </section>
 

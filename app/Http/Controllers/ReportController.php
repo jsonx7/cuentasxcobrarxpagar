@@ -30,11 +30,19 @@ class ReportController extends Controller
             ->whereHas('receivable', fn ($query) => $query->where('estado', ReceivableStatus::Activo->value))
             ->get();
 
+        $conMora = Installment::query()
+            ->conMoraPendiente()
+            ->whereHas('receivable', fn ($query) => $query->whereIn('estado', [
+                ReceivableStatus::Activo->value,
+                ReceivableStatus::Pagado->value,
+            ]))
+            ->get();
+
         return view('reports.index', [
             'contratosActivos' => (clone $activos)->count(),
             'cartera' => round((float) (clone $activos)->sum('total_a_pagar'), 2),
             'cuotasVencidas' => $vencidas->count(),
-            'moraPendiente' => round($vencidas->sum(fn (Installment $cuota) => $mora->pendiente($cuota, today())), 2),
+            'moraPendiente' => round($conMora->sum(fn (Installment $cuota) => $mora->pendiente($cuota, today())), 2),
             'cobradoMes' => round((float) Payment::query()
                 ->whereBetween('fecha_pago', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
                 ->sum('monto'), 2),
@@ -169,7 +177,7 @@ class ReportController extends Controller
 
         $installments = Installment::query()
             ->with(['receivable.client'])
-            ->overdue()
+            ->conMoraPendiente()
             ->whereHas('receivable', function (Builder $query) use ($filtros) {
                 $query->where('estado', '!=', ReceivableStatus::Cancelado->value)
                     ->search($filtros['q'] ?? null);
@@ -182,6 +190,10 @@ class ReportController extends Controller
         $installments->each(function (Installment $installment) use ($mora) {
             $installment->setAttribute('mora_pendiente', $mora->pendiente($installment, today()));
         });
+
+        $installments = $installments
+            ->filter(fn (Installment $installment) => (float) $installment->mora_pendiente > 0.004)
+            ->values();
 
         return [
             'installments' => $installments,

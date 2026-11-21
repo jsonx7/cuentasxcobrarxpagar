@@ -34,7 +34,16 @@ class DashboardController extends Controller
 
         $cuotasVencidas = $vencidas->count();
         $montoVencido = round($vencidas->sum(fn (Installment $cuota) => max((float) $cuota->monto - (float) $cuota->monto_pagado, 0)), 2);
-        $moraPendiente = round($vencidas->sum(fn (Installment $cuota) => $mora->pendiente($cuota, today())), 2);
+
+        $conMora = Installment::query()
+            ->conMoraPendiente()
+            ->whereHas('receivable', fn ($query) => $query->whereIn('estado', [
+                ReceivableStatus::Activo->value,
+                ReceivableStatus::Pagado->value,
+            ]))
+            ->with('receivable')
+            ->get();
+        $moraPendiente = round($conMora->sum(fn (Installment $cuota) => $mora->pendiente($cuota, today())), 2);
 
         $cobradoMes = (float) Payment::query()
             ->whereBetween('fecha_pago', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])

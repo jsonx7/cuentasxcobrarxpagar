@@ -26,7 +26,7 @@ UI, validaciones y mensajes en español. El plan de amortización mensual y la m
   - Código automático `CP-{año}-{0001}`.
   - Obligaciones con concepto, monto, emisión y vencimiento; pagos directos (sin PMT).
   - Estados: pendiente, parcial, pagado y cancelado.
-- **Reportes**: consolidado general (cobrar y pagar) y cuotas vencidas con días de atraso y mora pendiente, ambos exportables a PDF. Panel con totales, próximos vencimientos y obligaciones por vencer.
+- **Reportes**: consolidado general (cobrar y pagar) y cuotas con mora pendiente —vencidas o ya pagadas— con días de atraso, ambos exportables a PDF. Panel con totales, próximos vencimientos y obligaciones por vencer.
 - **Usuarios y roles**:
   - `admin`: acceso total, incluida la administración de usuarios.
   - `operador`: puede gestionar clientes, materiales, proveedores, contratos, abonos y obligaciones; no puede administrar usuarios.
@@ -58,13 +58,16 @@ Ejemplo de referencia (`monto = 1500`, `tasa = 8 %`, `plazo = 30 meses`):
 ## Cálculo de mora (igual que `interesmoratorio.xlsx`)
 
 ```
-mora = capital × (saldo / monto) × (tasa_mora_mensual / 100) / 30 × días_de_atraso
+mora = base × (tasa_mora_mensual / 100) / 30 × días_de_atraso
 ```
 
-- `saldo = monto de la cuota - monto pagado de la cuota`; si la cuota ya está pagada no genera mora.
+- Mientras la cuota tiene saldo, `base = capital × (saldo / monto)`, donde `saldo = monto - monto_pagado`.
+- Al saldar una cuota se guarda esa base en `installments.mora_base`. La mora sigue contando días hasta la fecha de pago de la mora, aunque el préstamo ya esté pagado.
+- Al pagar la mora por completo se guarda `installments.mora_fecha_hasta` y el conteo se detiene.
+- Los pagos parciales de mora no cambian la base; el resto sigue generando mora.
 - Solo se calcula cuando `fecha_vencimiento < fecha de cálculo` (días corridos, sin capitalización).
 - Tasa por defecto 5 % mensual; se puede sobreescribir en cada contrato.
-- La mora **nunca** se suma al capital del contrato: se controla en `installments.mora_pagada` y en abonos con `tipo='mora'`.
+- La mora **nunca** se suma al capital del contrato: se controla en `installments.mora_pagada` y en abonos con `tipo='mora'`. Se puede pagar de forma opcional incluso después de cancelar el préstamo.
 
 Referencias de la hoja:
 

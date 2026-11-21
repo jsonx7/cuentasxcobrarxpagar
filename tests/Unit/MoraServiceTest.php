@@ -86,6 +86,52 @@ class MoraServiceTest extends TestCase
         $this->assertEqualsWithDelta(30, $totales['pendiente'], 0.01);
     }
 
+    #[Test]
+    public function it_keeps_calculating_mora_after_the_installment_is_paid(): void
+    {
+        $installment = $this->overdueInstallment(
+            capital: 1000,
+            monto: 1000,
+            fechaVencimiento: '2026-01-01',
+        );
+        $installment->update([
+            'monto_pagado' => 1000,
+            'mora_base' => 1000,
+        ]);
+
+        $service = app(MoraService::class);
+
+        $this->assertEqualsWithDelta(50, $service->calculate($installment, '2026-01-31'), 0.01);
+        $this->assertEqualsWithDelta(75, $service->calculate($installment, '2026-02-15'), 0.01);
+
+        $installment->update(['mora_pagada' => 20]);
+
+        $this->assertEqualsWithDelta(55, $service->pendiente($installment, '2026-02-15'), 0.01);
+    }
+
+    #[Test]
+    public function it_stops_accruing_mora_once_it_is_fully_paid(): void
+    {
+        $installment = $this->overdueInstallment(
+            capital: 1000,
+            monto: 1000,
+            fechaVencimiento: '2026-01-01',
+        );
+        $installment->update([
+            'monto_pagado' => 1000,
+            'mora_base' => 1000,
+            'mora_pagada' => 50,
+            'mora_fecha_hasta' => '2026-01-31',
+        ]);
+
+        $service = app(MoraService::class);
+
+        $this->assertEqualsWithDelta(50, $service->calculate($installment, '2026-01-31'), 0.01);
+        $this->assertEqualsWithDelta(0, $service->pendiente($installment, '2026-01-31'), 0.01);
+        $this->assertEqualsWithDelta(50, $service->calculate($installment, '2026-03-31'), 0.01);
+        $this->assertEqualsWithDelta(0, $service->pendiente($installment, '2026-03-31'), 0.01);
+    }
+
     private function overdueInstallment(
         float $capital = 1000,
         float $monto = 1000,
