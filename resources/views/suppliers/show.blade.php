@@ -70,7 +70,7 @@
                 <p class="text-xs text-slate-400">Registradas</p>
             </div>
             <div class="rounded-xl bg-slate-50 p-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total facturado</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total Adeudado</p>
                 <p class="mt-1 text-xl font-semibold text-slate-900"><x-money :value="$obligaciones->sum('monto')" /></p>
                 <p class="text-xs text-slate-400">Monto original</p>
             </div>

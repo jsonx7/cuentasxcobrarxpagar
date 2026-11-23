@@ -46,7 +46,7 @@
                         </div>
 
                         <div>
-                            <label for="monto" class="block text-sm font-medium text-slate-700">Monto de la obligación <span class="text-rose-500">*</span></label>
+                            <label for="monto" class="block text-sm font-medium text-slate-700">Monto de contratación <span class="text-rose-500">*</span></label>
                             <div class="relative mt-1.5">
                                 <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-slate-400">$</span>
                                 <input id="monto" name="monto" type="number" step="0.01" min="1" required value="{{ old('monto') }}"
@@ -57,7 +57,7 @@
                         </div>
 
                         <div>
-                            <label for="fecha_emision" class="block text-sm font-medium text-slate-700">Fecha de emisión <span class="text-rose-500">*</span></label>
+                            <label for="fecha_emision" class="block text-sm font-medium text-slate-700">Fecha de contratación <span class="text-rose-500">*</span></label>
                             <input id="fecha_emision" name="fecha_emision" type="date" required value="{{ old('fecha_emision', now()->toDateString()) }}"
                                 class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
                             <x-input-error name="fecha_emision" />
