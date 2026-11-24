@@ -229,13 +229,21 @@ document.addEventListener('alpine:init', () => {
             ));
         },
 
+        get efectivo() {
+            return round2(Number(this.monto) || 0);
+        },
+
         // Total entregado (dinero + materiales). La mora se descuenta de este total.
         get total() {
-            return round2((Number(this.monto) || 0) + this.materialTotal);
+            return round2(this.efectivo + this.materialTotal);
+        },
+
+        get moraAsignada() {
+            return round2(Number(this.montoMora) || 0);
         },
 
         get totalCuotas() {
-            return Math.max(round2(this.total - (Number(this.montoMora) || 0)), 0);
+            return Math.max(round2(this.total - this.moraAsignada), 0);
         },
 
         precioMaterial(materialId) {
@@ -301,6 +309,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('payablePaymentModal', (config = {}) => ({
         open: false,
         monto: '',
+        concepto: config.concepto ?? '',
         fecha: config.today ?? '',
         metodo: config.defaultMethod ?? 'efectivo',
         referencia: '',
@@ -308,6 +317,7 @@ document.addEventListener('alpine:init', () => {
 
         show(preset = null) {
             this.monto = preset?.monto ?? '';
+            this.concepto = preset?.concepto ?? config.concepto ?? '';
             this.fecha = config.today ?? '';
             this.metodo = config.defaultMethod ?? 'efectivo';
             this.referencia = '';

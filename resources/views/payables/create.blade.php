@@ -2,7 +2,7 @@
 
 @section('title', 'Nueva obligación por pagar')
 @section('heading', 'Nueva obligación por pagar')
-@section('subheading', 'Registra una deuda con un proveedor. No requiere plan de amortización.')
+@section('subheading', 'Registra una deuda con un proveedor y programa fechas de vencimiento como recordatorio.')
 
 @section('content')
     <div class="mx-auto max-w-3xl">
@@ -15,7 +15,7 @@
                 </a>
             </div>
         @else
-            <form method="POST" action="{{ route('payables.store') }}" class="space-y-6">
+            <form method="POST" action="{{ route('payables.store') }}" class="space-y-6" x-data="{ frecuencia: '{{ old('frecuencia', 'unico') }}', conPrima: {{ old('tiene_prima') ? 'true' : 'false' }} }">
                 @csrf
 
                 <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -35,6 +35,15 @@
                                 @endforeach
                             </select>
                             <x-input-error name="supplier_id" />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="codigo" class="block text-sm font-medium text-slate-700">Número de obligación <span class="text-slate-400">(opcional)</span></label>
+                            <input id="codigo" name="codigo" type="text" maxlength="30" value="{{ old('codigo') }}"
+                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm uppercase text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                placeholder="Ej. CP-2026-0099 (si se deja vacío se genera automáticamente)">
+                            <p class="mt-1 text-xs text-slate-400">Si no lo indicas, el sistema asigna el siguiente código disponible.</p>
+                            <x-input-error name="codigo" />
                         </div>
 
                         <div class="sm:col-span-2">
@@ -64,10 +73,66 @@
                         </div>
 
                         <div>
-                            <label for="fecha_vencimiento" class="block text-sm font-medium text-slate-700">Fecha de vencimiento <span class="text-rose-500">*</span></label>
-                            <input id="fecha_vencimiento" name="fecha_vencimiento" type="date" required value="{{ old('fecha_vencimiento', now()->addDays(15)->toDateString()) }}"
+                            <label for="fecha_primer_pago" class="block text-sm font-medium text-slate-700">Fecha del primer pago <span class="text-rose-500">*</span></label>
+                            <input id="fecha_primer_pago" name="fecha_primer_pago" type="date" required value="{{ old('fecha_primer_pago', now()->addDays(15)->toDateString()) }}"
                                 class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                            <x-input-error name="fecha_vencimiento" />
+                            <p class="mt-1 text-xs text-slate-400">También será la fecha de vencimiento principal de la obligación.</p>
+                            <x-input-error name="fecha_primer_pago" />
+                        </div>
+
+                        <div>
+                            <label for="frecuencia" class="block text-sm font-medium text-slate-700">Frecuencia de vencimientos <span class="text-rose-500">*</span></label>
+                            <select id="frecuencia" name="frecuencia" x-model="frecuencia" required
+                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                @foreach ($frecuencias as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected(old('frecuencia', 'unico') === $valor)>{{ $etiqueta }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-xs text-slate-400">Solo genera fechas recordatorio; no calcula intereses ni mora.</p>
+                            <x-input-error name="frecuencia" />
+                        </div>
+
+                        <div x-show="frecuencia !== 'unico'" x-cloak>
+                            <label for="plazo" class="block text-sm font-medium text-slate-700">Número de cuotas <span class="text-rose-500">*</span></label>
+                            <input id="plazo" name="plazo" type="number" step="1" min="1" max="520" value="{{ old('plazo', 1) }}"
+                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                placeholder="1">
+                            <p class="mt-1 text-xs text-slate-400">Se generarán este número de vencimientos desde la fecha del primer pago.</p>
+                            <x-input-error name="plazo" />
+                        </div>
+
+                        <div class="sm:col-span-2 mt-1 border-t border-slate-100 pt-5">
+                            <label class="inline-flex cursor-pointer items-start gap-3">
+                                <input type="checkbox" name="tiene_prima" value="1" x-model="conPrima"
+                                    class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                <span>
+                                    <span class="block text-sm font-medium text-slate-800">Sí se abonó prima o anticipo</span>
+                                    <span class="mt-0.5 block text-xs text-slate-500">Se registrará como un pago con concepto «Prima» y descontará el saldo desde el inicio.</span>
+                                </span>
+                            </label>
+                            <x-input-error name="tiene_prima" />
+                        </div>
+
+                        <div x-show="conPrima" x-cloak class="sm:col-span-2">
+                            <div class="grid gap-5 rounded-xl bg-indigo-50/60 p-4 ring-1 ring-inset ring-indigo-100 sm:grid-cols-2">
+                                <div>
+                                    <label for="monto_prima" class="block text-sm font-medium text-slate-700">Monto de la prima <span class="text-rose-500">*</span></label>
+                                    <div class="relative mt-1.5">
+                                        <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-slate-400">$</span>
+                                        <input id="monto_prima" name="monto_prima" type="number" step="0.01" min="0.01" value="{{ old('monto_prima') }}"
+                                            class="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                            placeholder="0.00">
+                                    </div>
+                                    <x-input-error name="monto_prima" />
+                                </div>
+
+                                <div>
+                                    <label for="fecha_prima" class="block text-sm font-medium text-slate-700">Fecha en que se abonó <span class="text-rose-500">*</span></label>
+                                    <input id="fecha_prima" name="fecha_prima" type="date" value="{{ old('fecha_prima', now()->toDateString()) }}"
+                                        class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                    <x-input-error name="fecha_prima" />
+                                </div>
+                            </div>
                         </div>
 
                         <div class="sm:col-span-2">

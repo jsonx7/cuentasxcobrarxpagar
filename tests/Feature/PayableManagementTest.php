@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\PayableStatus;
+use App\Enums\PaymentFrequency;
 use App\Enums\PaymentMethod;
 use App\Enums\UserRole;
 use App\Models\Payable;
@@ -71,6 +72,19 @@ class PayableManagementTest extends TestCase
     }
 
     #[Test]
+    public function an_admin_can_open_the_payable_creation_form_with_the_prima_option(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->createSupplier();
+
+        $this->actingAs($admin)->get(route('payables.create'))
+            ->assertOk()
+            ->assertSee('Sí se abonó prima o anticipo')
+            ->assertSee('monto_prima')
+            ->assertSee('fecha_prima');
+    }
+
+    #[Test]
     public function an_admin_can_create_a_payable_and_its_code(): void
     {
         $admin = User::factory()->admin()->create();
@@ -92,6 +106,211 @@ class PayableManagementTest extends TestCase
         $this->assertSame(PayableStatus::Pendiente, $payable->estado);
         $this->assertEqualsWithDelta(500, (float) $payable->monto, 0.01);
         $this->assertEqualsWithDelta(500, (float) $payable->saldo_pendiente, 0.01);
+        $this->assertDatabaseCount('payable_payments', 0);
+    }
+
+    #[Test]
+    public function a_custom_code_can_be_supported_when_creating_a_payable(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'codigo' => 'cp-2026-0099',
+            'concepto' => 'Factura con código propio',
+            'monto' => 500,
+            'fecha_emision' => now()->toDateString(),
+            'fecha_vencimiento' => now()->addDays(15)->toDateString(),
+        ])->assertRedirect();
+
+        $this->assertSame('CP-2026-0099', Payable::query()->firstOrFail()->codigo);
+    }
+
+    #[Test]
+    public function a_duplicate_custom_payable_code_is_rejected(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $data = [
+            'supplier_id' => $supplier->id,
+            'codigo' => 'CP-2026-0100',
+            'concepto' => 'Factura con código repetido',
+            'monto' => 500,
+            'fecha_emision' => now()->toDateString(),
+            'fecha_vencimiento' => now()->addDays(15)->toDateString(),
+        ];
+
+        $this->actingAs($admin)->post(route('payables.store'), $data)->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('payables.store'), $data)->assertSessionHasErrors('codigo');
+
+        $this->assertDatabaseCount('payables', 1);
+    }
+
+    #[Test]
+    public function a_prima_can_be_registered_when_creating_a_payable_and_reverted(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura con prima',
+            'monto' => 500,
+            'fecha_emision' => now()->toDateString(),
+            'frecuencia' => PaymentFrequency::Mensual->value,
+            'plazo' => 2,
+            'fecha_primer_pago' => now()->toDateString(),
+            'fecha_vencimiento' => now()->toDateString(),
+            'tiene_prima' => 1,
+            'monto_prima' => 100,
+            'fecha_prima' => now()->toDateString(),
+        ])->assertRedirect();
+
+        $payable = Payable::query()->firstOrFail();
+        $prima = $payable->payments()->firstOrFail();
+
+        $this->assertSame('Prima', $prima->concepto);
+        $this->assertEqualsWithDelta(100, (float) $prima->monto, 0.01);
+        $this->assertEqualsWithDelta(400, (float) $payable->fresh()->saldo_pendiente, 0.01);
+        $this->assertSame(PayableStatus::Parcial, $payable->fresh()->estado);
+        $this->assertTrue((bool) $payable->installments()->orderBy('numero')->first()->pagada);
+        $this->assertFalse((bool) $payable->installments()->where('numero', 2)->firstOrFail()->pagada);
+
+        $this->actingAs($admin)->get(route('payables.show', $payable))
+            ->assertOk()
+            ->assertSee('Prima');
+
+        $this->actingAs($admin)->delete(route('payable-payments.destroy', $prima))
+            ->assertRedirect(route('payables.show', $payable));
+
+        $this->assertEqualsWithDelta(500, (float) $payable->fresh()->saldo_pendiente, 0.01);
+        $this->assertSame(PayableStatus::Pendiente, $payable->fresh()->estado);
+        $this->assertFalse((bool) $payable->installments()->orderBy('numero')->first()->pagada);
+    }
+
+    #[Test]
+    public function prima_requires_amount_and_date_and_cannot_exceed_the_payable_amount(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $data = [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura con prima inválida',
+            'monto' => 500,
+            'fecha_emision' => now()->toDateString(),
+            'fecha_vencimiento' => now()->addDays(15)->toDateString(),
+            'tiene_prima' => 1,
+        ];
+
+        $this->actingAs($admin)->post(route('payables.store'), $data + [
+            'fecha_prima' => now()->toDateString(),
+        ])->assertSessionHasErrors('monto_prima');
+
+        $this->actingAs($admin)->post(route('payables.store'), $data + [
+            'monto_prima' => 100,
+        ])->assertSessionHasErrors('fecha_prima');
+
+        $this->actingAs($admin)->post(route('payables.store'), $data + [
+            'monto_prima' => 501,
+            'fecha_prima' => now()->toDateString(),
+        ])->assertSessionHasErrors('monto_prima');
+
+        $this->assertDatabaseCount('payables', 0);
+        $this->assertDatabaseCount('payable_payments', 0);
+    }
+
+    #[Test]
+    public function a_payable_can_generate_installment_due_dates_from_the_first_payment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura a 3 meses',
+            'monto' => 900,
+            'fecha_emision' => '2026-01-01',
+            'frecuencia' => PaymentFrequency::Mensual->value,
+            'plazo' => 3,
+            'fecha_primer_pago' => '2026-01-31',
+            'fecha_vencimiento' => '2026-01-31',
+        ])->assertRedirect();
+
+        $payable = Payable::query()->firstOrFail();
+
+        $this->assertSame('2026-01-31', $payable->fecha_primer_pago->toDateString());
+        $this->assertCount(3, $payable->installments);
+        $this->assertSame(
+            ['2026-01-31', '2026-02-28', '2026-03-31'],
+            $payable->installments->pluck('fecha_vencimiento')->map->toDateString()->all()
+        );
+        $this->assertTrue($payable->installments->every(fn ($cuota) => ! $cuota->pagada));
+    }
+
+    #[Test]
+    public function an_overdue_payable_installment_is_detected_as_a_reminder(): void
+    {
+        $payable = $this->createPayable($this->createSupplier());
+
+        $cuota = $payable->installments()->create([
+            'numero' => 1,
+            'fecha_vencimiento' => now()->subDay()->toDateString(),
+        ]);
+
+        $this->assertTrue($cuota->fresh()->vencida);
+
+        $cuota->update(['pagada' => true]);
+
+        $this->assertFalse($cuota->fresh()->vencida);
+    }
+
+    #[Test]
+    public function payable_payments_store_the_concept_and_cover_installments(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura de materiales',
+            'monto' => 600,
+            'fecha_emision' => now()->toDateString(),
+            'frecuencia' => PaymentFrequency::Mensual->value,
+            'plazo' => 2,
+            'fecha_primer_pago' => now()->toDateString(),
+            'fecha_vencimiento' => now()->toDateString(),
+        ])->assertRedirect();
+
+        $payable = Payable::query()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
+            'monto' => 300,
+            'concepto' => 'Primer abono de la factura',
+            'fecha_pago' => now()->toDateString(),
+        ])->assertRedirect();
+
+        $pago = $payable->payments()->firstOrFail();
+
+        $this->assertSame('Primer abono de la factura', $pago->concepto);
+        $this->assertTrue((bool) $payable->installments()->orderBy('numero')->first()->pagada);
+        $this->assertFalse((bool) $payable->installments()->where('numero', 2)->firstOrFail()->pagada);
+
+        $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
+            'monto' => 300,
+            'concepto' => 'Pago final',
+            'fecha_pago' => now()->toDateString(),
+        ])->assertRedirect();
+
+        $this->assertTrue($payable->installments()->get()->every(fn ($cuota) => $cuota->pagada));
+
+        $this->actingAs($admin)->get(route('payables.show', $payable))
+            ->assertOk()
+            ->assertSee('Vencimientos programados')
+            ->assertSee('Primer abono de la factura')
+            ->assertSee('Pago final');
     }
 
     #[Test]
@@ -102,6 +321,7 @@ class PayableManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
             'monto' => 200,
+            'concepto' => 'Pago parcial de la factura',
             'fecha_pago' => now()->toDateString(),
             'metodo' => PaymentMethod::Efectivo->value,
             'referencia' => 'PAGO-1',
@@ -112,6 +332,7 @@ class PayableManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
             'monto' => 300,
+            'concepto' => 'Pago final de la factura',
             'fecha_pago' => now()->toDateString(),
             'metodo' => PaymentMethod::Transferencia->value,
         ])->assertRedirect(route('payables.show', $payable));
@@ -136,11 +357,13 @@ class PayableManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
             'monto' => 0,
+            'concepto' => 'Abono inválido',
             'fecha_pago' => now()->toDateString(),
         ])->assertSessionHasErrors('monto');
 
         $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
             'monto' => 501,
+            'concepto' => 'Abono inválido',
             'fecha_pago' => now()->toDateString(),
         ])->assertSessionHasErrors('monto');
 

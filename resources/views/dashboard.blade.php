@@ -207,8 +207,15 @@
         <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div>
-                    <h2 class="text-sm font-semibold text-slate-800">Obligaciones por vencer</h2>
-                    <p class="text-xs text-slate-500">Cuentas por pagar próximas a su vencimiento.</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-sm font-semibold text-slate-800">Obligaciones por vencer</h2>
+                        @if ($cuotasPayableVencidas > 0)
+                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
+                                {{ $cuotasPayableVencidas }} cuota(s) vencida(s)
+                            </span>
+                        @endif
+                    </div>
+                    <p class="text-xs text-slate-500">Cuentas por pagar próximas a su vencimiento. Solo recordatorio, sin mora.</p>
                 </div>
                 <a href="{{ route('payables.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Ver todas</a>
             </div>

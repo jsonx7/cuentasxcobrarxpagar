@@ -61,6 +61,15 @@
                                 <x-input-error name="client_id" />
                             </div>
 
+                            <div class="sm:col-span-2">
+                                <label for="codigo" class="block text-sm font-medium text-slate-700">Código del contrato <span class="text-slate-400">(opcional)</span></label>
+                                <input id="codigo" name="codigo" type="text" maxlength="30" value="{{ old('codigo') }}"
+                                    class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm uppercase text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                    placeholder="Ej. CR-2026-0099 (si se deja vacío se genera automáticamente)">
+                                <p class="mt-1 text-xs text-slate-400">Si no lo indicas, el sistema asigna el siguiente código disponible.</p>
+                                <x-input-error name="codigo" />
+                            </div>
+
                             <div>
                                 <label for="monto" class="block text-sm font-medium text-slate-700">Monto del contrato <span class="text-rose-500">*</span></label>
                                 <div class="relative mt-1.5">

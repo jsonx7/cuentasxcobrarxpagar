@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\PayableStatus;
+use App\Enums\PaymentFrequency;
 use App\Models\Payable;
 use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -26,6 +27,9 @@ class PayableFactory extends Factory
             'monto' => 500,
             'fecha_emision' => '2026-01-01',
             'fecha_vencimiento' => '2026-01-15',
+            'frecuencia' => PaymentFrequency::Unico,
+            'plazo' => 1,
+            'fecha_primer_pago' => '2026-01-15',
             'estado' => PayableStatus::Pendiente,
             'observaciones' => null,
             'created_by' => null,

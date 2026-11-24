@@ -21,6 +21,9 @@ class StoreReceivableRequest extends FormRequest
 
         $this->merge([
             'client_id' => $this->integer('client_id') ?: null,
+            'codigo' => filled($this->input('codigo'))
+                ? strtoupper(trim((string) $this->input('codigo')))
+                : null,
             'monto' => $this->parseNumber($this->input('monto')),
             'tasa_interes_anual' => $this->parseNumber($this->input('tasa_interes_anual'))
                 ?? (float) config('cuentas.tasa_interes_default', 8),
@@ -40,6 +43,7 @@ class StoreReceivableRequest extends FormRequest
     {
         return [
             'client_id' => ['required', 'integer', 'exists:clients,id'],
+            'codigo' => ['nullable', 'string', 'max:30', Rule::unique('receivables', 'codigo')],
             'monto' => ['required', 'numeric', 'min:1', 'max:10000000'],
             'tasa_interes_anual' => ['required', 'numeric', 'min:0', 'max:100'],
             'tasa_mora_mensual' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -76,6 +80,7 @@ class StoreReceivableRequest extends FormRequest
         return [
             'client_id.required' => 'Selecciona un cliente.',
             'client_id.exists' => 'El cliente seleccionado no existe.',
+            'codigo.unique' => 'Ese código ya está registrado. Déjalo vacío para generarlo automáticamente.',
             'monto.required' => 'El monto del contrato es obligatorio.',
             'monto.min' => 'El monto debe ser mayor que cero.',
             'plazo.required' => 'Indica el plazo en meses.',
@@ -93,6 +98,7 @@ class StoreReceivableRequest extends FormRequest
     {
         return [
             'client_id' => 'cliente',
+            'codigo' => 'código',
             'monto' => 'monto',
             'tasa_interes_anual' => 'tasa de interés',
             'tasa_mora_mensual' => 'tasa de mora mensual',

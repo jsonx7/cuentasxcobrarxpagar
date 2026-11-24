@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PayableStatus;
+use App\Enums\PaymentFrequency;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'codigo', 'supplier_id', 'concepto', 'monto', 'fecha_emision',
-    'fecha_vencimiento', 'estado', 'observaciones', 'created_by',
+    'fecha_vencimiento', 'frecuencia', 'plazo', 'fecha_primer_pago',
+    'estado', 'observaciones', 'created_by',
 ])]
 class Payable extends Model
 {
@@ -27,6 +29,9 @@ class Payable extends Model
             'monto' => 'decimal:2',
             'fecha_emision' => 'date',
             'fecha_vencimiento' => 'date',
+            'fecha_primer_pago' => 'date',
+            'plazo' => 'integer',
+            'frecuencia' => PaymentFrequency::class,
             'estado' => PayableStatus::class,
         ];
     }
@@ -44,6 +49,11 @@ class Payable extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(PayablePayment::class);
+    }
+
+    public function installments(): HasMany
+    {
+        return $this->hasMany(PayableInstallment::class)->orderBy('numero');
     }
 
     public function isPagado(): bool

@@ -81,6 +81,7 @@ class RolePermissionsTest extends TestCase
 
         $this->actingAs($operator)->post(route('payable-payments.store', $payable), [
             'monto' => 100,
+            'concepto' => 'Abono del operador',
             'fecha_pago' => now()->toDateString(),
         ])->assertRedirect(route('payables.show', $payable));
 

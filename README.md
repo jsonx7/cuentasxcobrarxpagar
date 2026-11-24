@@ -10,8 +10,9 @@ UI, validaciones y mensajes en español. El plan de amortización mensual y la m
 
 - **Clientes**: nombre, DUI (`00000000-0`), NIT, teléfono, correo, dirección, notas y estado. Se pueden inactivar; no se eliminan si tienen contratos.
 - **Cuentas por cobrar (contratos)**:
-  - Código automático `CR-{año}-{0001}`.
+  - Código `CR-{año}-{0001}` automático; también puedes escribir uno propio (se normaliza a mayúsculas y no puede repetirse).
   - Frecuencias al crear: pago único y mensual. Los vencimientos se anclan al día del primer pago sin desbordamiento de mes.
+  - El detalle incluye un **historial de pagos** con saldo posterior por abono.
   - Plan de amortización generado con la lógica mensual de `interesmoratorio.xlsx`, con vista previa en vivo.
   - Tasa de mora mensual configurable por contrato (por defecto 5 %).
   - Contratos inmutables: se crean, se cancelan o se eliminan (sin editar). Se puede imprimir en PDF.
@@ -23,8 +24,11 @@ UI, validaciones y mensajes en español. El plan de amortización mensual y la m
   - Validación para no pagar más que el saldo de la cuota/contrato ni más mora de la pendiente.
 - **Materiales**: catálogo con código, unidad, precio y estado. No se pueden eliminar si aparecen en un abono.
 - **Proveedores y cuentas por pagar**:
-  - Código automático `CP-{año}-{0001}`.
+  - Código `CP-{año}-{0001}` automático; también puedes escribir uno propio (se normaliza a mayúsculas y no puede repetirse).
   - Obligaciones con concepto, monto, emisión y vencimiento; pagos directos (sin PMT).
+  - Programación de vencimientos indicando **fecha del primer pago**, frecuencia (única, semanal, quincenal o mensual) y número de cuotas. Son solo recordatorios: **no generan intereses ni mora**. El detalle muestra las cuotas pagadas y cuáles están vencidas; el panel avisa cuántas cuotas de pago están vencidas.
+  - Cada pago lleva su **concepto**, fecha, monto, método, referencia y notas.
+  - Si al crear la obligación se abonó **prima o anticipo**, marca la opción e indica monto y fecha: se registra como un pago con concepto «Prima», descuenta el saldo y aparece en el historial (se puede eliminar como cualquier otro pago).
   - Estados: pendiente, parcial, pagado y cancelado.
 - **Reportes**: consolidado general (cobrar y pagar) y cuotas con mora pendiente —vencidas o ya pagadas— con días de atraso, ambos exportables a PDF. Panel con totales, próximos vencimientos y obligaciones por vencer.
 - **Usuarios y roles**:

@@ -17,6 +17,7 @@ class RegisterPayablePaymentRequest extends FormRequest
     {
         $this->merge([
             'monto' => $this->parseNumber($this->input('monto')),
+            'concepto' => filled($this->input('concepto')) ? trim((string) $this->input('concepto')) : null,
             'fecha_pago' => $this->input('fecha_pago') ?: now()->toDateString(),
             'metodo' => $this->input('metodo') ?: PaymentMethod::Efectivo->value,
             'referencia' => filled($this->input('referencia')) ? trim((string) $this->input('referencia')) : null,
@@ -31,6 +32,7 @@ class RegisterPayablePaymentRequest extends FormRequest
     {
         return [
             'monto' => ['required', 'numeric', 'min:0.01', 'max:10000000'],
+            'concepto' => ['required', 'string', 'max:160'],
             'fecha_pago' => ['required', 'date', 'before_or_equal:today'],
             'metodo' => ['required', Rule::in(array_column(PaymentMethod::cases(), 'value'))],
             'referencia' => ['nullable', 'string', 'max:80'],
@@ -46,6 +48,7 @@ class RegisterPayablePaymentRequest extends FormRequest
         return [
             'monto.required' => 'El monto del pago es obligatorio.',
             'monto.min' => 'El pago debe ser mayor que cero.',
+            'concepto.required' => 'El concepto del pago es obligatorio.',
             'fecha_pago.before_or_equal' => 'La fecha del pago no puede ser futura.',
             'metodo.required' => 'Selecciona el método de pago.',
         ];
@@ -58,6 +61,7 @@ class RegisterPayablePaymentRequest extends FormRequest
     {
         return [
             'monto' => 'monto',
+            'concepto' => 'concepto del pago',
             'fecha_pago' => 'fecha de pago',
             'metodo' => 'método de pago',
             'referencia' => 'referencia',

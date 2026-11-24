@@ -7,6 +7,7 @@ use App\Enums\ReceivableStatus;
 use App\Models\Client;
 use App\Models\Installment;
 use App\Models\Payable;
+use App\Models\PayableInstallment;
 use App\Models\PayablePayment;
 use App\Models\Payment;
 use App\Models\Receivable;
@@ -100,6 +101,15 @@ class DashboardController extends Controller
             ->limit(6)
             ->get();
 
+        $cuotasPayableVencidas = PayableInstallment::query()
+            ->where('pagada', false)
+            ->whereDate('fecha_vencimiento', '<', today()->toDateString())
+            ->whereHas('payable', fn ($query) => $query->whereNotIn('estado', [
+                PayableStatus::Pagado->value,
+                PayableStatus::Cancelado->value,
+            ]))
+            ->count();
+
         return view('dashboard', [
             'clientesActivos' => Client::query()->where('activo', true)->count(),
             'proveedoresActivos' => Supplier::query()->where('activo', true)->count(),
@@ -123,6 +133,7 @@ class DashboardController extends Controller
             'porProveedor' => $porProveedor,
             'maxProveedor' => max((float) $porProveedor->max('total'), 1),
             'obligacionesPorVencer' => $obligacionesPorVencer,
+            'cuotasPayableVencidas' => $cuotasPayableVencidas,
         ]);
     }
 }

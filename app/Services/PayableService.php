@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\PayableStatus;
+use App\Enums\PaymentFrequency;
 use App\Enums\PaymentMethod;
 use App\Models\Payable;
 use App\Models\PayablePayment;
@@ -24,18 +25,50 @@ class PayableService
     {
         return DB::transaction(function () use ($data, $user) {
             $fechaEmision = Carbon::parse($data['fecha_emision'] ?? today());
+            $frecuencia = $data['frecuencia'] instanceof PaymentFrequency
+                ? $data['frecuencia']
+                : PaymentFrequency::from($data['frecuencia'] ?? PaymentFrequency::Unico->value);
+            $plazo = max(1, (int) ($data['plazo'] ?? 1));
+            $fechaPrimerPago = Carbon::parse($data['fecha_primer_pago'] ?? $data['fecha_vencimiento']);
+            $codigo = filled($data['codigo'] ?? null)
+                ? strtoupper(trim((string) $data['codigo']))
+                : $this->codes->next($fechaEmision->year);
 
-            return Payable::create([
-                'codigo' => $this->codes->next($fechaEmision->year),
+            $payable = Payable::create([
+                'codigo' => $codigo,
                 'supplier_id' => $data['supplier_id'],
                 'concepto' => $data['concepto'],
                 'monto' => round((float) $data['monto'], 2),
                 'fecha_emision' => $fechaEmision->toDateString(),
-                'fecha_vencimiento' => Carbon::parse($data['fecha_vencimiento'])->toDateString(),
+                'fecha_vencimiento' => $fechaPrimerPago->toDateString(),
+                'frecuencia' => $frecuencia->value,
+                'plazo' => $plazo,
+                'fecha_primer_pago' => $fechaPrimerPago->toDateString(),
                 'estado' => PayableStatus::Pendiente->value,
                 'observaciones' => $data['observaciones'] ?? null,
                 'created_by' => $user?->id,
             ]);
+
+            for ($numero = 1; $numero <= $plazo; $numero++) {
+                $payable->installments()->create([
+                    'numero' => $numero,
+                    'fecha_vencimiento' => $this->fechaCuota($fechaPrimerPago, $frecuencia, $numero - 1)->toDateString(),
+                ]);
+            }
+
+            if (! empty($data['tiene_prima']) && (float) ($data['monto_prima'] ?? 0) > 0) {
+                $this->registerPayment($payable, [
+                    'monto' => $data['monto_prima'],
+                    'fecha_pago' => $data['fecha_prima'] ?? $fechaEmision->toDateString(),
+                    'concepto' => 'Prima',
+                    'metodo' => PaymentMethod::Efectivo,
+                    'notas' => 'Prima abonada al registrar la obligación.',
+                ], $user);
+
+                $payable->refresh();
+            }
+
+            return $payable->load('installments');
         });
     }
 
@@ -81,6 +114,7 @@ class PayableService
             $payment = $payable->payments()->create([
                 'fecha_pago' => Carbon::parse($data['fecha_pago'] ?? today())->toDateString(),
                 'monto' => $monto,
+                'concepto' => $data['concepto'] ?? $payable->concepto,
                 'metodo' => $metodo->value,
                 'referencia' => $data['referencia'] ?? null,
                 'notas' => $data['notas'] ?? null,
@@ -89,6 +123,7 @@ class PayableService
 
             $payable->refresh();
             $this->syncStatus($payable);
+            $this->syncInstallments($payable);
 
             return $payment;
         });
@@ -103,6 +138,7 @@ class PayableService
             if ($payable) {
                 $payable->refresh();
                 $this->syncStatus($payable);
+                $this->syncInstallments($payable);
             }
         });
     }
@@ -135,6 +171,45 @@ class PayableService
         }
 
         $payable->delete();
+    }
+
+    /**
+     * Calcula cada vencimiento desde la fecha base, no desde la cuota anterior,
+     * para conservar el día anclado del primer pago (equivalente a EDATE).
+     */
+    private function fechaCuota(Carbon $base, PaymentFrequency $frecuencia, int $offset): Carbon
+    {
+        if ($frecuencia === PaymentFrequency::Mensual) {
+            return $base->copy()->addMonthsNoOverflow($offset);
+        }
+
+        $dias = $frecuencia->daysBetween();
+
+        return $dias !== null
+            ? $base->copy()->addDays($offset * $dias)
+            : $base->copy();
+    }
+
+    /**
+     * Marca como pagadas las cuotas programadas. No hay montos por cuota:
+     * cada pago registrado cubre la siguiente cuota en orden, y si la deuda
+     * queda saldada se marcan todas.
+     */
+    public function syncInstallments(Payable $payable): void
+    {
+        $installments = $payable->installments()->get();
+
+        if ($installments->isEmpty()) {
+            return;
+        }
+
+        $todoPagado = $payable->saldo_pendiente <= 0.009;
+        $pagadas = $payable->payments()->count();
+
+        foreach ($installments as $index => $installment) {
+            $installment->pagada = $todoPagado || $index < $pagadas;
+            $installment->save();
+        }
     }
 
     public function syncStatus(Payable $payable): void

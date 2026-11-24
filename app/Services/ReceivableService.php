@@ -40,8 +40,12 @@ class ReceivableService
                 $data['fecha_primer_pago'] ?? today(),
             );
 
+            $codigo = filled($data['codigo'] ?? null)
+                ? strtoupper(trim((string) $data['codigo']))
+                : $this->codes->next($fechaDesembolso->year);
+
             $receivable = Receivable::create([
-                'codigo' => $this->codes->next($fechaDesembolso->year),
+                'codigo' => $codigo,
                 'client_id' => $data['client_id'],
                 'monto' => round((float) $data['monto'], 2),
                 'tasa_interes_anual' => $plan['tasa_interes_anual'],

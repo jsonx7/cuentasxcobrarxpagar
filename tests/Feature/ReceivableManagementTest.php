@@ -58,6 +58,49 @@ class ReceivableManagementTest extends TestCase
     }
 
     #[Test]
+    public function a_custom_code_can_be_supported_when_creating_a_receivable(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $client = $this->createClient();
+
+        $this->actingAs($admin)->post(route('receivables.store'), [
+            'client_id' => $client->id,
+            'codigo' => 'cr-2026-0099',
+            'monto' => 1500,
+            'tasa_interes_anual' => 8,
+            'plazo' => 1,
+            'frecuencia' => PaymentFrequency::Unico->value,
+            'fecha_desembolso' => '2026-01-01',
+            'fecha_primer_pago' => '2026-01-08',
+        ])->assertRedirect();
+
+        $this->assertSame('CR-2026-0099', Receivable::query()->firstOrFail()->codigo);
+    }
+
+    #[Test]
+    public function a_duplicate_custom_code_is_rejected(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $client = $this->createClient();
+
+        $data = [
+            'client_id' => $client->id,
+            'codigo' => 'CR-2026-0100',
+            'monto' => 1500,
+            'tasa_interes_anual' => 8,
+            'plazo' => 1,
+            'frecuencia' => PaymentFrequency::Unico->value,
+            'fecha_desembolso' => '2026-01-01',
+            'fecha_primer_pago' => '2026-01-08',
+        ];
+
+        $this->actingAs($admin)->post(route('receivables.store'), $data)->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('receivables.store'), $data)->assertSessionHasErrors('codigo');
+
+        $this->assertDatabaseCount('receivables', 1);
+    }
+
+    #[Test]
     public function an_inactive_client_cannot_be_used_for_a_new_receivable(): void
     {
         $admin = User::factory()->admin()->create();

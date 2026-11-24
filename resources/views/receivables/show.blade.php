@@ -14,6 +14,14 @@
         ]);
         $puedeEliminar = $receivable->payments->isEmpty();
         $puedeCancelar = ! $receivable->isCancelado() && ! $receivable->isPagado();
+
+        // Saldo de cuotas después de cada abono (la mora se contabiliza aparte).
+        $saldoPosterior = [];
+        $acumulado = 0;
+        foreach ($receivable->payments->sortBy(['fecha_pago', 'id']) as $pagoHistorial) {
+            $acumulado += (float) $pagoHistorial->monto;
+            $saldoPosterior[$pagoHistorial->id] = max(0, (float) $receivable->total_a_pagar - $acumulado);
+        }
     @endphp
 
     <div x-data="paymentModal({
@@ -213,7 +221,7 @@
                         Plan de pagos <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ $installments->count() }}</span>
                     </button>
                     <button type="button" class="rounded-lg px-3 py-1.5 text-sm font-medium transition" x-bind:class="tab === 'abonos' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'" @click="tab = 'abonos'">
-                        Abonos registrados <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ $receivable->payments->count() }}</span>
+                        Historial de pagos <span class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ $receivable->payments->count() }}</span>
                     </button>
                 </div>
 
@@ -306,6 +314,7 @@
                                     <th class="px-5 py-3">Fecha</th>
                                     <th class="px-5 py-3 text-right">A cuotas</th>
                                     <th class="px-5 py-3 text-right">Mora</th>
+                                    <th class="px-5 py-3 text-right">Saldo posterior</th>
                                     <th class="px-5 py-3">Método</th>
                                     <th class="px-5 py-3">Materiales</th>
                                     <th class="px-5 py-3">Referencia</th>
@@ -322,6 +331,7 @@
                                         <td class="whitespace-nowrap px-5 py-4 text-slate-600">{{ $payment->fecha_pago->format('d/m/Y') }}</td>
                                         <td class="whitespace-nowrap px-5 py-4 text-right font-semibold text-emerald-600"><x-money :value="$payment->monto" /></td>
                                         <td class="whitespace-nowrap px-5 py-4 text-right text-rose-600"><x-money :value="$payment->monto_mora" /></td>
+                                        <td class="whitespace-nowrap px-5 py-4 text-right font-medium text-slate-700"><x-money :value="$saldoPosterior[$payment->id] ?? 0" /></td>
                                         <td class="px-5 py-4"><x-status-badge :status="$payment->metodo" /></td>
                                         <td class="px-5 py-4 text-xs text-slate-500">
                                             @forelse ($payment->materials as $material)
@@ -364,118 +374,153 @@
         <div x-show="open" x-cloak class="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4 no-print" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
             <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" @click="close()"></div>
 
-            <div class="relative w-full max-w-2xl overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
-                <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
-                    <div>
-                        <h3 id="payment-modal-title" class="text-base font-semibold text-slate-900">Registrar abono</h3>
-                        <p class="text-xs text-slate-500" x-show="installmentLabel">Aplicar a <span class="font-medium text-slate-700" x-text="installmentLabel"></span></p>
-                        <p class="text-xs text-slate-500" x-show="!installmentLabel">El abono se distribuye en las cuotas pendientes más antiguas.</p>
+            <div class="relative flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+                <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/80 px-6 py-4">
+                    <div class="flex items-start gap-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg>
+                        </span>
+                        <div>
+                            <h3 id="payment-modal-title" class="text-base font-semibold text-slate-900">Registrar abono</h3>
+                            <p class="text-xs text-slate-500" x-show="installmentLabel">Aplicar a <span class="font-semibold text-slate-700" x-text="installmentLabel"></span></p>
+                            <p class="text-xs text-slate-500" x-show="!installmentLabel">Se distribuye en las cuotas pendientes más antiguas.</p>
+                        </div>
                     </div>
-                    <button type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="close()" aria-label="Cerrar">
+                    <button type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600" @click="close()" aria-label="Cerrar">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
 
-                <form method="POST" action="{{ route('payments.store', $receivable) }}" class="max-h-[80vh] overflow-y-auto p-6">
+                <form method="POST" action="{{ route('payments.store', $receivable) }}" class="flex min-h-0 flex-1 flex-col">
                     @csrf
                     <input type="hidden" name="installment_id" x-model="installmentId">
 
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="monto" class="block text-sm font-medium text-slate-700">Monto en dinero</label>
-                            <div class="relative mt-1.5">
-                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-slate-400">$</span>
-                                <input id="monto" name="monto" type="number" step="0.01" min="0" x-model.number="monto" x-ref="montoInput"
-                                    class="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                        <section>
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">1</span>
+                                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Datos del abono</h4>
                             </div>
-                            <p class="mt-1 text-xs text-slate-400">Puedes dejarlo en 0 si entregas solo materiales.</p>
-                        </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label for="monto" class="block text-sm font-medium text-slate-700">Monto en dinero</label>
+                                    <div class="relative mt-1.5">
+                                        <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-slate-400">$</span>
+                                        <input id="monto" name="monto" type="number" step="0.01" min="0" x-model.number="monto" x-ref="montoInput"
+                                            class="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                    </div>
+                                    <p class="mt-1 text-xs text-slate-400">Puedes dejarlo en 0 si entregas solo materiales.</p>
+                                </div>
 
-                        <div>
+                                <div>
+                                    <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha del abono <span class="text-rose-500">*</span></label>
+                                    <input id="fecha_pago" name="fecha_pago" type="date" x-model="fecha" max="{{ now()->toDateString() }}" required
+                                        class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                </div>
+
+                                <div class="sm:col-span-2">
+                                    <label for="metodo" class="block text-sm font-medium text-slate-700">Método de pago <span class="text-rose-500">*</span></label>
+                                    <select id="metodo" name="metodo" x-model="metodo" required
+                                        class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                        @foreach ($metodosPago as $valor => $etiqueta)
+                                            <option value="{{ $valor }}">{{ $etiqueta }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-xl border border-rose-100 bg-rose-50/50 p-4">
+                            <div class="mb-3 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">2</span>
+                                    <h4 class="text-xs font-semibold uppercase tracking-wide text-rose-700">Mora (opcional)</h4>
+                                </div>
+                                <span class="text-xs font-medium text-rose-700">Pendiente hoy: <x-money :value="$mora['pendiente']" /></span>
+                            </div>
                             <label for="monto_mora" class="block text-sm font-medium text-slate-700">Monto para mora</label>
                             <div class="relative mt-1.5">
-                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-slate-400">$</span>
+                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-rose-400">$</span>
                                 <input id="monto_mora" name="monto_mora" type="number" step="0.01" min="0" x-model.number="montoMora"
-                                    class="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                    class="block w-full rounded-lg border border-rose-200 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20">
                             </div>
-                            <p class="mt-1 text-xs text-slate-400">Opcional. Se descuenta del total entregado; el resto se aplica a las cuotas. Puede pagarse aunque el préstamo esté saldado.</p>
-                            <p class="mt-1 text-xs font-medium text-rose-600">Pendiente hoy: <x-money :value="$mora['pendiente']" /></p>
-                        </div>
+                            <p class="mt-1 text-xs text-rose-700/80">Se descuenta del total entregado; el resto se aplica a cuotas. Puede pagarse aunque el contrato esté saldado.</p>
+                        </section>
 
-                        <div>
-                            <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha del abono <span class="text-rose-500">*</span></label>
-                            <input id="fecha_pago" name="fecha_pago" type="date" x-model="fecha" max="{{ now()->toDateString() }}" required
-                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                        </div>
+                        <section>
+                            <div class="mb-3 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">3</span>
+                                    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Materiales entregados</h4>
+                                </div>
+                                <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50" @click="addMaterial()">
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                    Agregar
+                                </button>
+                            </div>
+                            <p class="mb-3 text-xs text-slate-400">Se valoran con el precio del catálogo; puedes ajustar el precio unitario.</p>
 
-                        <div>
-                            <label for="metodo" class="block text-sm font-medium text-slate-700">Método de pago <span class="text-rose-500">*</span></label>
-                            <select id="metodo" name="metodo" x-model="metodo" required
-                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                                @foreach ($metodosPago as $valor => $etiqueta)
-                                    <option value="{{ $valor }}">{{ $etiqueta }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                            <div class="space-y-3">
+                                <template x-for="(material, index) in materiales" :key="index">
+                                    <div class="grid gap-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3 sm:grid-cols-[1fr_80px_110px_32px]">
+                                        <select :name="'materiales[' + index + '][material_id]'" x-model="material.material_id" @change="seleccionarMaterial(index)"
+                                            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                            <option value="">Selecciona un material…</option>
+                                            <template x-for="item in catalogo" :key="item.id">
+                                                <option :value="item.id" x-text="item.nombre + ' — $' + Number(item.precio).toFixed(2)"></option>
+                                            </template>
+                                        </select>
+                                        <input type="number" step="0.001" min="0.001" placeholder="Cant." :name="'materiales[' + index + '][cantidad]'" x-model.number="material.cantidad"
+                                            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                        <input type="number" step="0.01" min="0" placeholder="Precio" :name="'materiales[' + index + '][precio_unitario]'" x-model.number="material.precio_unitario"
+                                            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+                                        <button type="button" class="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" @click="removeMaterial(index)" title="Quitar material" aria-label="Quitar material">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+
+                        <section>
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">4</span>
+                                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Detalles adicionales</h4>
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label for="referencia" class="block text-sm font-medium text-slate-700">Referencia</label>
+                                    <input id="referencia" name="referencia" type="text" maxlength="80" x-model="referencia"
+                                        class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                        placeholder="Número de recibo, boleta o transferencia">
+                                </div>
+                                <div>
+                                    <label for="notas" class="block text-sm font-medium text-slate-700">Notas</label>
+                                    <input id="notas" name="notas" type="text" maxlength="500" x-model="notas"
+                                        class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                        placeholder="Observación opcional del abono…">
+                                </div>
+                            </div>
+                        </section>
                     </div>
 
-                    <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <p class="text-sm font-semibold text-slate-800">Materiales entregados</p>
-                                <p class="text-xs text-slate-500">Se valoran con el precio del catálogo; puedes ajustar el precio unitario.</p>
+                    <div class="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-4">
+                            <div><span class="text-slate-500">Efectivo</span><p class="font-semibold text-slate-800" x-text="money(efectivo)"></p></div>
+                            <div><span class="text-slate-500">Materiales</span><p class="font-semibold text-slate-800" x-text="money(materialTotal)"></p></div>
+                            <div><span class="text-slate-500">Total entregado</span><p class="font-semibold text-slate-800" x-text="money(total)"></p></div>
+                            <div><span class="text-slate-500">Para mora</span><p class="font-semibold text-rose-600" x-text="money(moraAsignada)"></p></div>
+                        </div>
+                        <div class="mt-3 flex flex-col gap-3 rounded-xl bg-indigo-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="text-sm text-indigo-900">
+                                <p>Aplicado a cuotas: <strong class="text-base" x-text="money(totalCuotas)"></strong></p>
+                                <p class="text-xs text-indigo-700">La mora se contabiliza aparte y nunca se capitaliza.</p>
                             </div>
-                            <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50" @click="addMaterial()">
-                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                                Agregar
+                            <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                Registrar abono
                             </button>
                         </div>
-
-                        <div class="mt-3 space-y-3">
-                            <template x-for="(material, index) in materiales" :key="index">
-                                <div class="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_80px_110px_32px]">
-                                    <select :name="'materiales[' + index + '][material_id]'" x-model="material.material_id" @change="seleccionarMaterial(index)"
-                                        class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                                        <option value="">Selecciona un material…</option>
-                                        <template x-for="item in catalogo" :key="item.id">
-                                            <option :value="item.id" x-text="item.nombre + ' — $' + Number(item.precio).toFixed(2)"></option>
-                                        </template>
-                                    </select>
-                                    <input type="number" step="0.001" min="0.001" placeholder="Cant." :name="'materiales[' + index + '][cantidad]'" x-model.number="material.cantidad"
-                                        class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                                    <input type="number" step="0.01" min="0" placeholder="Precio" :name="'materiales[' + index + '][precio_unitario]'" x-model.number="material.precio_unitario"
-                                        class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
-                                    <button type="button" class="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" @click="removeMaterial(index)" title="Quitar material" aria-label="Quitar material">
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                    </button>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="referencia" class="block text-sm font-medium text-slate-700">Referencia</label>
-                            <input id="referencia" name="referencia" type="text" maxlength="80" x-model="referencia"
-                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                                placeholder="Número de recibo, boleta o transferencia">
-                        </div>
-                        <div>
-                            <label for="notas" class="block text-sm font-medium text-slate-700">Notas</label>
-                            <input id="notas" name="notas" type="text" maxlength="500" x-model="notas"
-                                class="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                                placeholder="Observación opcional del abono…">
-                        </div>
-                    </div>
-
-                    <div class="mt-5 flex flex-col gap-3 rounded-xl bg-indigo-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="text-sm text-indigo-900">
-                            <p>Total entregado: <strong x-text="money(total)"></strong></p>
-                            <p class="text-xs text-indigo-700">Aplicado a cuotas: <span x-text="money(totalCuotas)"></span></p>
-                        </div>
-                        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
-                            Registrar abono
-                        </button>
                     </div>
                 </form>
             </div>

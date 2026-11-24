@@ -5,7 +5,11 @@
 @section('content')
     @php($user = auth()->user())
 
-    <div x-data="payablePaymentModal({ today: '{{ now()->toDateString() }}', defaultMethod: 'efectivo' })">
+    <div x-data="payablePaymentModal({
+        today: '{{ now()->toDateString() }}',
+        defaultMethod: 'efectivo',
+        concepto: @js($payable->concepto),
+    })">
         <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <a href="{{ route('payables.index') }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-indigo-600">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
@@ -99,14 +103,62 @@
                 </div>
             </div>
 
+            <div class="border-b border-slate-100 p-6">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Vencimientos programados</h3>
+                        <p class="mt-1 text-xs text-slate-400">
+                            {{ $payable->frecuencia->label() }} · {{ $payable->plazo }} cuota(s) · recordatorio sin mora ni intereses.
+                        </p>
+                    </div>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
+                        {{ $payable->installments->where('vencida', true)->count() }} vencida(s)
+                    </span>
+                </div>
+
+                <div class="mt-4 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3">#</th>
+                                <th class="px-4 py-3">Vence</th>
+                                <th class="px-4 py-3">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @forelse ($payable->installments as $cuota)
+                                <tr class="{{ $cuota->vencida ? 'bg-rose-50/40' : '' }}">
+                                    <td class="px-4 py-3 font-medium text-slate-700">{{ $cuota->numero }}</td>
+                                    <td class="px-4 py-3 text-slate-600">{{ $cuota->fecha_vencimiento->format('d/m/Y') }}</td>
+                                    <td class="px-4 py-3">
+                                        @if ($cuota->pagada)
+                                            <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">Pagada</span>
+                                        @elseif ($cuota->vencida)
+                                            <span class="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">Vencida</span>
+                                        @else
+                                            <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">Pendiente</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-4 py-6 text-center text-sm text-slate-500">No hay vencimientos programados.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="p-6">
-                <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Pagos registrados</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Historial de pagos</h3>
                 <div class="mt-3 overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
                                 <th class="px-4 py-3">Fecha</th>
                                 <th class="px-4 py-3 text-right">Monto</th>
+                                <th class="px-4 py-3">Concepto</th>
                                 <th class="px-4 py-3">Método</th>
                                 <th class="px-4 py-3">Referencia</th>
                                 <th class="px-4 py-3">Registrado por</th>
@@ -118,6 +170,7 @@
                                 <tr>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ $pago->fecha_pago?->format('d/m/Y') }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right font-medium text-slate-800"><x-money :value="$pago->monto" /></td>
+                                    <td class="px-4 py-3 text-slate-600">{{ $pago->concepto ?: '—' }}</td>
                                     <td class="px-4 py-3 text-slate-600">{{ $pago->metodo->label() }}</td>
                                     <td class="px-4 py-3 text-slate-600">{{ $pago->referencia ?: '—' }}</td>
                                     <td class="px-4 py-3 text-slate-600">{{ $pago->user?->name ?? '—' }}</td>
@@ -135,7 +188,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-6 text-center text-sm text-slate-500">No hay pagos registrados para esta obligación.</td>
+                                    <td colspan="7" class="px-4 py-6 text-center text-sm text-slate-500">No hay pagos registrados para esta obligación.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -166,6 +219,13 @@
                             <label for="payable-monto-pago" class="block text-sm font-medium text-slate-700">Monto a pagar</label>
                             <input type="number" step="0.01" min="0.01" id="payable-monto-pago" name="monto" x-model.number="monto" x-ref="montoInput" required class="mt-1 w-full rounded-lg border-slate-300 text-sm">
                             @error('monto')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label for="payable-concepto-pago" class="block text-sm font-medium text-slate-700">Concepto del pago <span class="text-rose-500">*</span></label>
+                            <input type="text" id="payable-concepto-pago" name="concepto" x-model="concepto" maxlength="160" required
+                                class="mt-1 w-full rounded-lg border-slate-300 text-sm"
+                                placeholder="Ej. Pago factura de octubre">
+                            @error('concepto')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="payable-metodo-pago" class="block text-sm font-medium text-slate-700">Método</label>
