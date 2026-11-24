@@ -81,24 +81,6 @@ enum PaymentFrequency: string
     }
 
     /**
-     * Frecuencias ofrecidas al programar los vencimientos de una obligación
-     * por pagar. No genera intereses ni mora: solo fechas de recordatorio.
-     *
-     * @return array<string, string>
-     */
-    public static function payableOptions(): array
-    {
-        return collect([
-            self::Unico,
-            self::Semanal,
-            self::Quincenal,
-            self::Mensual,
-        ])
-            ->mapWithKeys(fn (self $frequency) => [$frequency->value => $frequency->label()])
-            ->all();
-    }
-
-    /**
      * @return array<string, string>
      */
     public static function options(): array

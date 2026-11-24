@@ -126,6 +126,7 @@ class ReportController extends Controller
         $payables = Payable::query()
             ->with('supplier')
             ->withSum('payments', 'monto')
+            ->withCount(['payments as abonos_count' => fn ($query) => $query->where('es_prima', false)])
             ->search($filtros['q'] ?? null)
             ->when($filtros['estado'] ?? null, fn (Builder $query, $estado) => $query->where('estado', $estado))
             ->when($filtros['proveedor'] ?? null, fn (Builder $query, $proveedor) => $query->where('supplier_id', $proveedor))

@@ -3,18 +3,17 @@
 namespace App\Models;
 
 use App\Enums\PayableStatus;
-use App\Enums\PaymentFrequency;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 #[Fillable([
     'codigo', 'supplier_id', 'concepto', 'monto', 'fecha_emision',
-    'fecha_vencimiento', 'frecuencia', 'plazo', 'fecha_primer_pago',
-    'estado', 'observaciones', 'created_by',
+    'fecha_vencimiento', 'fecha_primer_pago', 'estado', 'observaciones', 'created_by',
 ])]
 class Payable extends Model
 {
@@ -30,8 +29,6 @@ class Payable extends Model
             'fecha_emision' => 'date',
             'fecha_vencimiento' => 'date',
             'fecha_primer_pago' => 'date',
-            'plazo' => 'integer',
-            'frecuencia' => PaymentFrequency::class,
             'estado' => PayableStatus::class,
         ];
     }
@@ -49,11 +46,6 @@ class Payable extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(PayablePayment::class);
-    }
-
-    public function installments(): HasMany
-    {
-        return $this->hasMany(PayableInstallment::class)->orderBy('numero');
     }
 
     public function isPagado(): bool
@@ -98,6 +90,36 @@ class Payable extends Model
         }
 
         return min(100, round(($this->total_pagado / $total) * 100, 1));
+    }
+
+    /**
+     * Abonos normales registrados. La prima es un anticipo inicial y no cuenta.
+     */
+    public function getAbonosRegistradosAttribute(): int
+    {
+        if (array_key_exists('abonos_count', $this->attributes)) {
+            return (int) $this->attributes['abonos_count'];
+        }
+
+        return (int) $this->payments()->where('es_prima', false)->count();
+    }
+
+    /**
+     * Próxima fecha recordatorio: un mes por cada abono desde la fecha inicial,
+     * anclada al día del primer pago (equivalente a EDATE).
+     */
+    public function getFechaProximaPagoAttribute(): ?Carbon
+    {
+        if ($this->isPagado() || $this->isCancelado() || ! $this->fecha_primer_pago) {
+            return null;
+        }
+
+        return $this->fecha_primer_pago->copy()->addMonthsNoOverflow($this->abonos_registrados);
+    }
+
+    public function getRecordatorioVencidoAttribute(): bool
+    {
+        return $this->fecha_proxima_pago?->lt(today()) ?? false;
     }
 
     /**

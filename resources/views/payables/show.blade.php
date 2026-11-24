@@ -79,8 +79,8 @@
                             <p class="mt-1 font-semibold text-white"><x-money :value="$payable->saldo_pendiente" /></p>
                         </div>
                         <div class="col-span-2 sm:col-span-1">
-                            <p class="text-xs uppercase tracking-wide text-slate-400">Vencimiento</p>
-                            <p class="mt-1 font-semibold text-white">{{ $payable->fecha_vencimiento?->format('d/m/Y') }}</p>
+                            <p class="text-xs uppercase tracking-wide text-slate-400">Próximo pago</p>
+                            <p class="mt-1 font-semibold text-white">{{ $payable->fecha_proxima_pago?->format('d/m/Y') ?? '—' }}</p>
                         </div>
                     </div>
                 </div>
@@ -93,7 +93,7 @@
                         <div class="flex justify-between gap-4"><dt class="text-slate-500">Proveedor</dt><dd class="font-medium text-slate-800">{{ $payable->supplier->nombre }}</dd></div>
                         <div class="flex justify-between gap-4"><dt class="text-slate-500">Concepto</dt><dd class="text-right font-medium text-slate-800">{{ $payable->concepto }}</dd></div>
                         <div class="flex justify-between gap-4"><dt class="text-slate-500">Fecha de emisión</dt><dd class="font-medium text-slate-800">{{ $payable->fecha_emision?->format('d/m/Y') }}</dd></div>
-                        <div class="flex justify-between gap-4"><dt class="text-slate-500">Fecha de vencimiento</dt><dd class="font-medium text-slate-800">{{ $payable->fecha_vencimiento?->format('d/m/Y') }}</dd></div>
+                        <div class="flex justify-between gap-4"><dt class="text-slate-500">Primera fecha de pago</dt><dd class="font-medium text-slate-800">{{ $payable->fecha_primer_pago?->format('d/m/Y') ?? '—' }}</dd></div>
                         <div class="flex justify-between gap-4"><dt class="text-slate-500">Registrado por</dt><dd class="font-medium text-slate-800">{{ $payable->creator?->name ?? '—' }}</dd></div>
                     </dl>
                 </div>
@@ -104,50 +104,43 @@
             </div>
 
             <div class="border-b border-slate-100 p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Vencimientos programados</h3>
-                        <p class="mt-1 text-xs text-slate-400">
-                            {{ $payable->frecuencia->label() }} · {{ $payable->plazo }} cuota(s) · recordatorio sin mora ni intereses.
-                        </p>
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Próxima fecha de pago</h3>
+                        <p class="mt-1 text-xs text-slate-400">Cada abono mueve el recordatorio un mes. La prima es un anticipo y no lo mueve. Sin intereses ni mora.</p>
                     </div>
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
-                        {{ $payable->installments->where('vencida', true)->count() }} vencida(s)
-                    </span>
+                    @if ($payable->fecha_proxima_pago)
+                        <span @class([
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset',
+                            'bg-rose-50 text-rose-700 ring-rose-200' => $payable->recordatorio_vencido,
+                            'bg-indigo-50 text-indigo-700 ring-indigo-200' => ! $payable->recordatorio_vencido,
+                        ])>
+                            {{ $payable->fecha_proxima_pago->format('d/m/Y') }}
+                            @if ($payable->recordatorio_vencido)
+                                · Vencido
+                            @endif
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                            Sin pagos pendientes
+                        </span>
+                    @endif
                 </div>
 
-                <div class="mt-4 overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm">
-                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <tr>
-                                <th class="px-4 py-3">#</th>
-                                <th class="px-4 py-3">Vence</th>
-                                <th class="px-4 py-3">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            @forelse ($payable->installments as $cuota)
-                                <tr class="{{ $cuota->vencida ? 'bg-rose-50/40' : '' }}">
-                                    <td class="px-4 py-3 font-medium text-slate-700">{{ $cuota->numero }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $cuota->fecha_vencimiento->format('d/m/Y') }}</td>
-                                    <td class="px-4 py-3">
-                                        @if ($cuota->pagada)
-                                            <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">Pagada</span>
-                                        @elseif ($cuota->vencida)
-                                            <span class="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">Vencida</span>
-                                        @else
-                                            <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">Pendiente</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="3" class="px-4 py-6 text-center text-sm text-slate-500">No hay vencimientos programados.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                <dl class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div class="rounded-xl bg-slate-50 p-4">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Total de la deuda</dt>
+                        <dd class="mt-1 text-lg font-semibold text-slate-900"><x-money :value="$payable->monto" /></dd>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 p-4">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Abonos registrados</dt>
+                        <dd class="mt-1 text-lg font-semibold text-slate-900">{{ $payable->abonos_registrados }}</dd>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 p-4">
+                        <dt class="text-xs uppercase tracking-wide text-slate-500">Saldo pendiente</dt>
+                        <dd class="mt-1 text-lg font-semibold text-rose-600"><x-money :value="$payable->saldo_pendiente" /></dd>
+                    </div>
+                </dl>
             </div>
 
             <div class="p-6">
@@ -170,7 +163,14 @@
                                 <tr>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ $pago->fecha_pago?->format('d/m/Y') }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right font-medium text-slate-800"><x-money :value="$pago->monto" /></td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $pago->concepto ?: '—' }}</td>
+                                    <td class="px-4 py-3 text-slate-600">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span>{{ $pago->concepto ?: '—' }}</span>
+                                            @if ($pago->es_prima)
+                                                <span class="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">Prima</span>
+                                            @endif
+                                        </div>
+                                    </td>
                                     <td class="px-4 py-3 text-slate-600">{{ $pago->metodo->label() }}</td>
                                     <td class="px-4 py-3 text-slate-600">{{ $pago->referencia ?: '—' }}</td>
                                     <td class="px-4 py-3 text-slate-600">{{ $pago->user?->name ?? '—' }}</td>

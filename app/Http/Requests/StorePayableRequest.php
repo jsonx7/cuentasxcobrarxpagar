@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\PaymentFrequency;
 use App\Models\Supplier;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,10 +24,6 @@ class StorePayableRequest extends FormRequest
             'concepto' => trim((string) $this->input('concepto')),
             'monto' => $this->parseNumber($this->input('monto')),
             'fecha_emision' => $this->input('fecha_emision') ?: now()->toDateString(),
-            'frecuencia' => (string) ($this->input('frecuencia') ?: PaymentFrequency::Unico->value),
-            'plazo' => $this->input('frecuencia') === PaymentFrequency::Unico->value
-                ? 1
-                : (int) ($this->input('plazo') ?: 1),
             'fecha_primer_pago' => $this->input('fecha_primer_pago') ?: $this->input('fecha_vencimiento'),
             'fecha_vencimiento' => $this->input('fecha_primer_pago') ?: $this->input('fecha_vencimiento'),
             'tiene_prima' => $this->boolean('tiene_prima') ? 1 : 0,
@@ -50,8 +45,6 @@ class StorePayableRequest extends FormRequest
             'monto' => ['required', 'numeric', 'min:1', 'max:10000000'],
             'fecha_emision' => ['required', 'date'],
             'fecha_vencimiento' => ['required', 'date', 'after_or_equal:fecha_emision'],
-            'frecuencia' => ['required', Rule::in(array_keys(PaymentFrequency::payableOptions()))],
-            'plazo' => ['required', 'integer', 'min:1', 'max:520'],
             'fecha_primer_pago' => ['required', 'date', 'after_or_equal:fecha_emision'],
             'tiene_prima' => ['required', 'boolean'],
             'monto_prima' => ['exclude_unless:tiene_prima,1', 'required', 'numeric', 'min:0.01', 'max:10000000', 'lte:monto'],
@@ -81,14 +74,11 @@ class StorePayableRequest extends FormRequest
             'supplier_id.exists' => 'El proveedor seleccionado no existe.',
             'codigo.unique' => 'Ese código ya está registrado. Déjalo vacío para generarlo automáticamente.',
             'concepto.required' => 'El concepto de la obligación es obligatorio.',
-            'monto.required' => 'El monto de la obligación es obligatorio.',
-            'monto.min' => 'El monto debe ser mayor que cero.',
+            'monto.required' => 'El total de la deuda es obligatorio.',
+            'monto.min' => 'El total de la deuda debe ser mayor que cero.',
             'fecha_vencimiento.after_or_equal' => 'El vencimiento no puede ser anterior a la emisión.',
-            'frecuencia.required' => 'Selecciona la frecuencia de los vencimientos.',
-            'plazo.required' => 'Indica el número de cuotas.',
-            'plazo.min' => 'Debe haber al menos una cuota.',
-            'fecha_primer_pago.required' => 'Indica la fecha del primer pago.',
-            'fecha_primer_pago.after_or_equal' => 'El primer pago no puede ser anterior a la emisión.',
+            'fecha_primer_pago.required' => 'Indica la primera fecha de pago.',
+            'fecha_primer_pago.after_or_equal' => 'La primera fecha de pago no puede ser anterior a la emisión.',
             'monto_prima.required' => 'Indica el monto de la prima abonada.',
             'monto_prima.min' => 'El monto de la prima debe ser mayor que cero.',
             'monto_prima.lte' => 'La prima no puede ser mayor que el monto de la obligación.',
@@ -107,12 +97,10 @@ class StorePayableRequest extends FormRequest
             'supplier_id' => 'proveedor',
             'codigo' => 'código',
             'concepto' => 'concepto',
-            'monto' => 'monto',
+            'monto' => 'total de la deuda',
             'fecha_emision' => 'fecha de emisión',
             'fecha_vencimiento' => 'fecha de vencimiento',
-            'frecuencia' => 'frecuencia de vencimiento',
-            'plazo' => 'número de cuotas',
-            'fecha_primer_pago' => 'fecha del primer pago',
+            'fecha_primer_pago' => 'primera fecha de pago',
             'tiene_prima' => 'prima abonada',
             'monto_prima' => 'monto de la prima',
             'fecha_prima' => 'fecha de la prima',

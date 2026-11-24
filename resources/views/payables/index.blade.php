@@ -101,8 +101,8 @@
                             <th class="px-5 py-3">Código</th>
                             <th class="px-5 py-3">Proveedor</th>
                             <th class="px-5 py-3">Concepto</th>
-                            <th class="px-5 py-3">Vencimiento</th>
-                            <th class="px-5 py-3 text-right">Monto</th>
+                            <th class="px-5 py-3">Próximo pago</th>
+                            <th class="px-5 py-3 text-right">Total de la deuda</th>
                             <th class="px-5 py-3 text-right">Pagado</th>
                             <th class="px-5 py-3 text-right">Saldo</th>
                             <th class="px-5 py-3">Estado</th>
@@ -120,7 +120,7 @@
                                     <p class="text-xs text-slate-400">{{ $payable->supplier->nit ?: 'Sin NIT' }}</p>
                                 </td>
                                 <td class="px-5 py-3 text-slate-600">{{ $payable->concepto }}</td>
-                                <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $payable->fecha_vencimiento->format('d/m/Y') }}</td>
+                                <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $payable->fecha_proxima_pago?->format('d/m/Y') ?? '—' }}</td>
                                 <td class="px-5 py-3 text-right font-medium text-slate-800"><x-money :value="$payable->monto" /></td>
                                 <td class="px-5 py-3 text-right text-slate-500"><x-money :value="$payable->total_pagado" /></td>
                                 <td class="px-5 py-3 text-right font-medium text-rose-600"><x-money :value="$payable->saldo_pendiente" /></td>

@@ -208,14 +208,14 @@
             <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <h2 class="text-sm font-semibold text-slate-800">Obligaciones por vencer</h2>
-                        @if ($cuotasPayableVencidas > 0)
+                        <h2 class="text-sm font-semibold text-slate-800">Próximos pagos de obligaciones</h2>
+                        @if ($recordatoriosPayableVencidos > 0)
                             <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
-                                {{ $cuotasPayableVencidas }} cuota(s) vencida(s)
+                                {{ $recordatoriosPayableVencidos }} recordatorio(s) vencido(s)
                             </span>
                         @endif
                     </div>
-                    <p class="text-xs text-slate-500">Cuentas por pagar próximas a su vencimiento. Solo recordatorio, sin mora.</p>
+                    <p class="text-xs text-slate-500">Recordatorios mensuales de cuentas por pagar. Solo recordatorio, sin mora ni intereses.</p>
                 </div>
                 <a href="{{ route('payables.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Ver todas</a>
             </div>
@@ -231,8 +231,8 @@
                             <tr>
                                 <th class="px-5 py-3">Código</th>
                                 <th class="px-5 py-3">Proveedor</th>
-                                <th class="px-5 py-3">Vence</th>
-                                <th class="px-5 py-3 text-right">Monto</th>
+                                <th class="px-5 py-3">Próximo pago</th>
+                                <th class="px-5 py-3 text-right">Total de la deuda</th>
                                 <th class="px-5 py-3 text-right">Saldo</th>
                                 <th class="px-5 py-3">Estado</th>
                             </tr>
@@ -244,7 +244,7 @@
                                         <a href="{{ route('payables.show', $payable) }}" class="font-semibold text-indigo-600 hover:text-indigo-700">{{ $payable->codigo }}</a>
                                     </td>
                                     <td class="px-5 py-3 font-medium text-slate-800">{{ $payable->supplier->nombre }}</td>
-                                    <td class="px-5 py-3 text-slate-500">{{ $payable->fecha_vencimiento->format('d/m/Y') }}</td>
+                                    <td class="px-5 py-3 text-slate-500">{{ $payable->fecha_proxima_pago?->format('d/m/Y') ?? '—' }}</td>
                                     <td class="px-5 py-3 text-right text-slate-500"><x-money :value="$payable->monto" /></td>
                                     <td class="px-5 py-3 text-right font-medium text-slate-800"><x-money :value="$payable->saldo_pendiente" /></td>
                                     <td class="px-5 py-3"><x-status-badge :status="$payable->estado" /></td>

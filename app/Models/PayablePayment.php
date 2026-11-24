@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'payable_id', 'fecha_pago', 'monto', 'concepto', 'metodo',
+    'payable_id', 'fecha_pago', 'monto', 'concepto', 'es_prima', 'metodo',
     'referencia', 'notas', 'user_id',
 ])]
 class PayablePayment extends Model
@@ -25,6 +25,7 @@ class PayablePayment extends Model
         return [
             'fecha_pago' => 'date',
             'monto' => 'decimal:2',
+            'es_prima' => 'boolean',
             'metodo' => PaymentMethod::class,
         ];
     }

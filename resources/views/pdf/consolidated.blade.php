@@ -123,8 +123,8 @@
                 <th style="width: 10%;">Código</th>
                 <th style="width: 18%;">Proveedor</th>
                 <th style="width: 22%;">Concepto</th>
-                <th style="width: 11%;">Vencimiento</th>
-                <th style="width: 10%;" class="right">Monto</th>
+                <th style="width: 11%;">Próximo pago</th>
+                <th style="width: 10%;" class="right">Total de la deuda</th>
                 <th style="width: 10%;" class="right">Pagado</th>
                 <th style="width: 10%;" class="right">Saldo</th>
                 <th style="width: 9%;">Estado</th>
@@ -136,7 +136,7 @@
                     <td>{{ $payable->codigo }}</td>
                     <td>{{ $payable->supplier->nombre }}</td>
                     <td>{{ $payable->concepto }}</td>
-                    <td>{{ $payable->fecha_vencimiento?->format('d/m/Y') }}</td>
+                    <td>{{ $payable->fecha_proxima_pago?->format('d/m/Y') ?? '—' }}</td>
                     <td class="right">${{ number_format((float) $payable->monto, 2) }}</td>
                     <td class="right">${{ number_format($payable->total_pagado, 2) }}</td>
                     <td class="right">${{ number_format($payable->saldo_pendiente, 2) }}</td>

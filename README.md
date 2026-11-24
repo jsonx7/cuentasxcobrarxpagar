@@ -25,10 +25,10 @@ UI, validaciones y mensajes en español. El plan de amortización mensual y la m
 - **Materiales**: catálogo con código, unidad, precio y estado. No se pueden eliminar si aparecen en un abono.
 - **Proveedores y cuentas por pagar**:
   - Código `CP-{año}-{0001}` automático; también puedes escribir uno propio (se normaliza a mayúsculas y no puede repetirse).
-  - Obligaciones con concepto, monto, emisión y vencimiento; pagos directos (sin PMT).
-  - Programación de vencimientos indicando **fecha del primer pago**, frecuencia (única, semanal, quincenal o mensual) y número de cuotas. Son solo recordatorios: **no generan intereses ni mora**. El detalle muestra las cuotas pagadas y cuáles están vencidas; el panel avisa cuántas cuotas de pago están vencidas.
-  - Cada pago lleva su **concepto**, fecha, monto, método, referencia y notas.
-  - Si al crear la obligación se abonó **prima o anticipo**, marca la opción e indica monto y fecha: se registra como un pago con concepto «Prima», descuenta el saldo y aparece en el historial (se puede eliminar como cualquier otro pago).
+  - Obligaciones con concepto, **total de la deuda**, emisión y **primera fecha de pago**; pagos directos (sin PMT ni número de cuotas).
+  - Seguimiento **mensual**: la primera fecha indicada es el primer recordatorio y cada abono normal mueve la próxima fecha un mes (anclada al mismo día, equivalente a EDATE). La deuda saldada deja de mostrar recordatorio. Son solo recordatorios: **no generan intereses ni mora**. El detalle y el panel muestran la próxima fecha y avisan cuántos recordatorios están vencidos.
+  - Cada pago lleva su **concepto** obligatorio, fecha, monto, método, referencia y notas.
+  - Si al crear la obligación se abonó **prima o anticipo**, marca la opción e indica monto y fecha: se registra como un pago con concepto «Prima», descuenta el saldo y aparece en el historial (se puede eliminar como cualquier otro pago). La prima es un anticipo: **no mueve** la próxima fecha de pago.
   - Estados: pendiente, parcial, pagado y cancelado.
 - **Reportes**: consolidado general (cobrar y pagar) y cuotas con mora pendiente —vencidas o ya pagadas— con días de atraso, ambos exportables a PDF. Panel con totales, próximos vencimientos y obligaciones por vencer.
 - **Usuarios y roles**:

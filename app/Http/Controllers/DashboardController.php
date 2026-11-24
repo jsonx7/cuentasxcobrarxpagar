@@ -7,7 +7,6 @@ use App\Enums\ReceivableStatus;
 use App\Models\Client;
 use App\Models\Installment;
 use App\Models\Payable;
-use App\Models\PayableInstallment;
 use App\Models\PayablePayment;
 use App\Models\Payment;
 use App\Models\Receivable;
@@ -94,20 +93,19 @@ class DashboardController extends Controller
             ->limit(6)
             ->get();
 
-        $obligacionesPorVencer = (clone $obligacionesActivas)
+        $obligacionesConRecordatorio = (clone $obligacionesActivas)
             ->with('supplier')
-            ->whereDate('fecha_vencimiento', '>=', today()->toDateString())
-            ->orderBy('fecha_vencimiento')
-            ->limit(6)
+            ->withCount(['payments as abonos_count' => fn ($query) => $query->where('es_prima', false)])
             ->get();
 
-        $cuotasPayableVencidas = PayableInstallment::query()
-            ->where('pagada', false)
-            ->whereDate('fecha_vencimiento', '<', today()->toDateString())
-            ->whereHas('payable', fn ($query) => $query->whereNotIn('estado', [
-                PayableStatus::Pagado->value,
-                PayableStatus::Cancelado->value,
-            ]))
+        $obligacionesPorVencer = $obligacionesConRecordatorio
+            ->filter(fn (Payable $payable) => $payable->fecha_proxima_pago?->gte(today()))
+            ->sortBy(fn (Payable $payable) => $payable->fecha_proxima_pago)
+            ->take(6)
+            ->values();
+
+        $recordatoriosPayableVencidos = $obligacionesConRecordatorio
+            ->filter(fn (Payable $payable) => $payable->recordatorio_vencido)
             ->count();
 
         return view('dashboard', [
@@ -133,7 +131,7 @@ class DashboardController extends Controller
             'porProveedor' => $porProveedor,
             'maxProveedor' => max((float) $porProveedor->max('total'), 1),
             'obligacionesPorVencer' => $obligacionesPorVencer,
-            'cuotasPayableVencidas' => $cuotasPayableVencidas,
+            'recordatoriosPayableVencidos' => $recordatoriosPayableVencidos,
         ]);
     }
 }

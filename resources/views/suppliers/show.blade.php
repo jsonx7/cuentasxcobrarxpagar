@@ -142,8 +142,8 @@
                             <th class="px-5 py-3">Código</th>
                             <th class="px-5 py-3">Concepto</th>
                             <th class="px-5 py-3">Emisión</th>
-                            <th class="px-5 py-3">Vencimiento</th>
-                            <th class="px-5 py-3 text-right">Monto</th>
+                            <th class="px-5 py-3">Próximo pago</th>
+                            <th class="px-5 py-3 text-right">Total de la deuda</th>
                             <th class="px-5 py-3 text-right">Pagado</th>
                             <th class="px-5 py-3 text-right">Saldo</th>
                             <th class="px-5 py-3">Estado</th>
@@ -158,7 +158,7 @@
                                 </td>
                                 <td class="px-5 py-4 text-slate-700">{{ $payable->concepto }}</td>
                                 <td class="px-5 py-4 text-slate-500">{{ $payable->fecha_emision?->format('d/m/Y') ?? '—' }}</td>
-                                <td class="px-5 py-4 text-slate-500">{{ $payable->fecha_vencimiento?->format('d/m/Y') ?? '—' }}</td>
+                                <td class="px-5 py-4 text-slate-500">{{ $payable->fecha_proxima_pago?->format('d/m/Y') ?? '—' }}</td>
                                 <td class="px-5 py-4 text-right text-slate-700"><x-money :value="$payable->monto" /></td>
                                 <td class="px-5 py-4 text-right text-emerald-600"><x-money :value="$payable->total_pagado" /></td>
                                 <td class="px-5 py-4 text-right font-medium text-slate-800"><x-money :value="$payable->saldo_pendiente" /></td>

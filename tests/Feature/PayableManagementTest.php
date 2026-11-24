@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\PayableStatus;
-use App\Enums\PaymentFrequency;
 use App\Enums\PaymentMethod;
 use App\Enums\UserRole;
 use App\Models\Payable;
@@ -79,9 +78,12 @@ class PayableManagementTest extends TestCase
 
         $this->actingAs($admin)->get(route('payables.create'))
             ->assertOk()
+            ->assertSee('Total de la deuda')
+            ->assertSee('Primera fecha de pago')
             ->assertSee('Sí se abonó prima o anticipo')
             ->assertSee('monto_prima')
-            ->assertSee('fecha_prima');
+            ->assertSee('fecha_prima')
+            ->assertDontSee('Número de cuotas');
     }
 
     #[Test]
@@ -106,6 +108,8 @@ class PayableManagementTest extends TestCase
         $this->assertSame(PayableStatus::Pendiente, $payable->estado);
         $this->assertEqualsWithDelta(500, (float) $payable->monto, 0.01);
         $this->assertEqualsWithDelta(500, (float) $payable->saldo_pendiente, 0.01);
+        $this->assertSame(0, $payable->abonos_registrados);
+        $this->assertSame(now()->addDays(15)->toDateString(), $payable->fecha_proxima_pago->toDateString());
         $this->assertDatabaseCount('payable_payments', 0);
     }
 
@@ -159,8 +163,6 @@ class PayableManagementTest extends TestCase
             'concepto' => 'Factura con prima',
             'monto' => 500,
             'fecha_emision' => now()->toDateString(),
-            'frecuencia' => PaymentFrequency::Mensual->value,
-            'plazo' => 2,
             'fecha_primer_pago' => now()->toDateString(),
             'fecha_vencimiento' => now()->toDateString(),
             'tiene_prima' => 1,
@@ -172,11 +174,12 @@ class PayableManagementTest extends TestCase
         $prima = $payable->payments()->firstOrFail();
 
         $this->assertSame('Prima', $prima->concepto);
+        $this->assertTrue($prima->es_prima);
         $this->assertEqualsWithDelta(100, (float) $prima->monto, 0.01);
         $this->assertEqualsWithDelta(400, (float) $payable->fresh()->saldo_pendiente, 0.01);
         $this->assertSame(PayableStatus::Parcial, $payable->fresh()->estado);
-        $this->assertTrue((bool) $payable->installments()->orderBy('numero')->first()->pagada);
-        $this->assertFalse((bool) $payable->installments()->where('numero', 2)->firstOrFail()->pagada);
+        $this->assertSame(0, $payable->fresh()->abonos_registrados);
+        $this->assertSame(now()->toDateString(), $payable->fresh()->fecha_proxima_pago->toDateString());
 
         $this->actingAs($admin)->get(route('payables.show', $payable))
             ->assertOk()
@@ -187,7 +190,8 @@ class PayableManagementTest extends TestCase
 
         $this->assertEqualsWithDelta(500, (float) $payable->fresh()->saldo_pendiente, 0.01);
         $this->assertSame(PayableStatus::Pendiente, $payable->fresh()->estado);
-        $this->assertFalse((bool) $payable->installments()->orderBy('numero')->first()->pagada);
+        $this->assertSame(0, $payable->fresh()->abonos_registrados);
+        $this->assertSame(now()->toDateString(), $payable->fresh()->fecha_proxima_pago->toDateString());
     }
 
     #[Test]
@@ -223,52 +227,44 @@ class PayableManagementTest extends TestCase
     }
 
     #[Test]
-    public function a_payable_can_generate_installment_due_dates_from_the_first_payment(): void
+    public function the_next_payment_date_advances_one_month_per_regular_payment(): void
     {
         $admin = User::factory()->admin()->create();
         $supplier = $this->createSupplier();
 
         $this->actingAs($admin)->post(route('payables.store'), [
             'supplier_id' => $supplier->id,
-            'concepto' => 'Factura a 3 meses',
-            'monto' => 900,
+            'concepto' => 'Factura por abonos mensuales',
+            'monto' => 300,
             'fecha_emision' => '2026-01-01',
-            'frecuencia' => PaymentFrequency::Mensual->value,
-            'plazo' => 3,
             'fecha_primer_pago' => '2026-01-31',
             'fecha_vencimiento' => '2026-01-31',
         ])->assertRedirect();
 
         $payable = Payable::query()->firstOrFail();
 
-        $this->assertSame('2026-01-31', $payable->fecha_primer_pago->toDateString());
-        $this->assertCount(3, $payable->installments);
-        $this->assertSame(
-            ['2026-01-31', '2026-02-28', '2026-03-31'],
-            $payable->installments->pluck('fecha_vencimiento')->map->toDateString()->all()
-        );
-        $this->assertTrue($payable->installments->every(fn ($cuota) => ! $cuota->pagada));
+        $this->assertSame('2026-01-31', $payable->fecha_proxima_pago->toDateString());
+        $this->assertSame(0, $payable->abonos_registrados);
+
+        $fechasEsperadas = ['2026-02-28', '2026-03-31', null];
+
+        foreach (['2026-01-31', '2026-02-28', '2026-03-31'] as $numero => $fechaPago) {
+            $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
+                'monto' => 100,
+                'concepto' => 'Abono mensual '.($numero + 1),
+                'fecha_pago' => $fechaPago,
+            ])->assertRedirect();
+
+            $payable->refresh();
+            $this->assertSame($numero + 1, $payable->abonos_registrados);
+            $this->assertSame($fechasEsperadas[$numero], $payable->fecha_proxima_pago?->toDateString());
+        }
+
+        $this->assertSame(PayableStatus::Pagado, $payable->estado);
     }
 
     #[Test]
-    public function an_overdue_payable_installment_is_detected_as_a_reminder(): void
-    {
-        $payable = $this->createPayable($this->createSupplier());
-
-        $cuota = $payable->installments()->create([
-            'numero' => 1,
-            'fecha_vencimiento' => now()->subDay()->toDateString(),
-        ]);
-
-        $this->assertTrue($cuota->fresh()->vencida);
-
-        $cuota->update(['pagada' => true]);
-
-        $this->assertFalse($cuota->fresh()->vencida);
-    }
-
-    #[Test]
-    public function payable_payments_store_the_concept_and_cover_installments(): void
+    public function payable_payments_store_the_concept_and_move_the_next_payment_date(): void
     {
         $admin = User::factory()->admin()->create();
         $supplier = $this->createSupplier();
@@ -278,8 +274,6 @@ class PayableManagementTest extends TestCase
             'concepto' => 'Factura de materiales',
             'monto' => 600,
             'fecha_emision' => now()->toDateString(),
-            'frecuencia' => PaymentFrequency::Mensual->value,
-            'plazo' => 2,
             'fecha_primer_pago' => now()->toDateString(),
             'fecha_vencimiento' => now()->toDateString(),
         ])->assertRedirect();
@@ -295,8 +289,8 @@ class PayableManagementTest extends TestCase
         $pago = $payable->payments()->firstOrFail();
 
         $this->assertSame('Primer abono de la factura', $pago->concepto);
-        $this->assertTrue((bool) $payable->installments()->orderBy('numero')->first()->pagada);
-        $this->assertFalse((bool) $payable->installments()->where('numero', 2)->firstOrFail()->pagada);
+        $this->assertFalse($pago->es_prima);
+        $this->assertSame(now()->addMonthNoOverflow()->toDateString(), $payable->fresh()->fecha_proxima_pago->toDateString());
 
         $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
             'monto' => 300,
@@ -304,11 +298,13 @@ class PayableManagementTest extends TestCase
             'fecha_pago' => now()->toDateString(),
         ])->assertRedirect();
 
-        $this->assertTrue($payable->installments()->get()->every(fn ($cuota) => $cuota->pagada));
+        $this->assertNull($payable->fresh()->fecha_proxima_pago);
+        $this->assertSame(PayableStatus::Pagado, $payable->fresh()->estado);
 
         $this->actingAs($admin)->get(route('payables.show', $payable))
             ->assertOk()
-            ->assertSee('Vencimientos programados')
+            ->assertSee('Próxima fecha de pago')
+            ->assertSee('Sin pagos pendientes')
             ->assertSee('Primer abono de la factura')
             ->assertSee('Pago final');
     }
@@ -339,6 +335,7 @@ class PayableManagementTest extends TestCase
 
         $this->assertEqualsWithDelta(500, (float) $payable->fresh()->total_pagado, 0.01);
         $this->assertSame(PayableStatus::Pagado, $payable->fresh()->estado);
+        $this->assertNull($payable->fresh()->fecha_proxima_pago);
 
         $firstPayment = $payable->payments()->orderBy('id')->firstOrFail();
 
@@ -347,6 +344,11 @@ class PayableManagementTest extends TestCase
 
         $this->assertEqualsWithDelta(300, (float) $payable->fresh()->total_pagado, 0.01);
         $this->assertSame(PayableStatus::Parcial, $payable->fresh()->estado);
+        $this->assertSame(1, $payable->fresh()->abonos_registrados);
+        $this->assertSame(
+            now()->addDays(15)->addMonthNoOverflow()->toDateString(),
+            $payable->fresh()->fecha_proxima_pago->toDateString()
+        );
     }
 
     #[Test]
@@ -381,11 +383,33 @@ class PayableManagementTest extends TestCase
         ])->assertRedirect(route('payables.show', $payable));
 
         $this->assertSame(PayableStatus::Cancelado, $payable->fresh()->estado);
+        $this->assertNull($payable->fresh()->fecha_proxima_pago);
 
         $this->actingAs($admin)->delete(route('payables.destroy', $payable))
             ->assertRedirect(route('payables.index'));
 
         $this->assertDatabaseMissing('payables', ['id' => $payable->id]);
+    }
+
+    #[Test]
+    public function the_dashboard_counts_overdue_payment_reminders(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+        $primerPago = now()->subMonthNoOverflow()->toDateString();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura con recordatorio vencido',
+            'monto' => 100,
+            'fecha_emision' => now()->subMonths(2)->toDateString(),
+            'fecha_primer_pago' => $primerPago,
+            'fecha_vencimiento' => $primerPago,
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('recordatoriosPayableVencidos', 1);
     }
 
     #[Test]
@@ -429,6 +453,7 @@ class PayableManagementTest extends TestCase
             'monto' => $monto ?? 500,
             'fecha_emision' => now()->toDateString(),
             'fecha_vencimiento' => now()->addDays(15)->toDateString(),
+            'fecha_primer_pago' => now()->addDays(15)->toDateString(),
             'estado' => PayableStatus::Pendiente,
         ], $attributes));
     }

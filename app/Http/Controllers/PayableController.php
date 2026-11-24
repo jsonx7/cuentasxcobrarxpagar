@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PayableStatus;
-use App\Enums\PaymentFrequency;
 use App\Enums\PaymentMethod;
 use App\Http\Requests\StorePayableRequest;
 use App\Models\Payable;
@@ -33,6 +32,7 @@ class PayableController extends Controller
         $payables = $base
             ->with('supplier')
             ->withSum('payments', 'monto')
+            ->withCount(['payments as abonos_count' => fn ($query) => $query->where('es_prima', false)])
             ->latest('fecha_emision')
             ->latest('id')
             ->paginate(15)
@@ -56,7 +56,6 @@ class PayableController extends Controller
     {
         return view('payables.create', [
             'suppliers' => Supplier::query()->active()->orderBy('nombre')->get(),
-            'frecuencias' => PaymentFrequency::payableOptions(),
         ]);
     }
 
@@ -74,7 +73,6 @@ class PayableController extends Controller
         $payable->load([
             'supplier',
             'creator',
-            'installments',
             'payments' => fn ($query) => $query->with('user')->latest('fecha_pago')->latest('id'),
         ]);
 

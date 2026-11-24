@@ -59,6 +59,7 @@ class SupplierController extends Controller
         $supplier->load([
             'payables' => fn ($query) => $query
                 ->withSum('payments', 'monto')
+                ->withCount(['payments as abonos_count' => fn ($query) => $query->where('es_prima', false)])
                 ->orderByDesc('fecha_emision')
                 ->orderByDesc('id'),
         ]);
