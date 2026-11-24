@@ -210,9 +210,9 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <h2 class="text-sm font-semibold text-slate-800">Próximos pagos de obligaciones</h2>
                         @if ($recordatoriosPayableVencidos > 0)
-                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
+                            <a href="{{ route('payables.overdue') }}" class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200 transition hover:bg-rose-100">
                                 {{ $recordatoriosPayableVencidos }} recordatorio(s) vencido(s)
-                            </span>
+                            </a>
                         @endif
                     </div>
                     <p class="text-xs text-slate-500">Recordatorios mensuales de cuentas por pagar. Solo recordatorio, sin mora ni intereses.</p>

@@ -413,6 +413,108 @@ class PayableManagementTest extends TestCase
     }
 
     #[Test]
+    public function overdue_reminders_are_listed_with_their_payable_and_supplier(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura con pago vencido',
+            'monto' => 300,
+            'fecha_emision' => now()->subDays(40)->toDateString(),
+            'fecha_primer_pago' => now()->subDays(10)->toDateString(),
+            'fecha_vencimiento' => now()->subDays(10)->toDateString(),
+        ])->assertRedirect();
+
+        $payable = Payable::query()->firstOrFail();
+
+        $this->actingAs($admin)->get(route('payables.overdue'))
+            ->assertOk()
+            ->assertSee('Pagos vencidos')
+            ->assertSee($payable->codigo)
+            ->assertSee($supplier->nombre)
+            ->assertSee('Factura con pago vencido');
+    }
+
+    #[Test]
+    public function paid_cancelled_and_future_obligations_are_not_listed_as_overdue(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $vencida = $this->createPayable($supplier, 100, [
+            'codigo' => 'CP-VEN-0001',
+            'concepto' => 'Vencida listada',
+            'fecha_primer_pago' => now()->subDay()->toDateString(),
+        ]);
+        $pagada = $this->createPayable($supplier, 100, [
+            'codigo' => 'CP-PAG-0001',
+            'concepto' => 'Pagada oculta',
+            'fecha_primer_pago' => now()->subDay()->toDateString(),
+            'estado' => PayableStatus::Pagado,
+        ]);
+        $cancelada = $this->createPayable($supplier, 100, [
+            'codigo' => 'CP-CAN-0001',
+            'concepto' => 'Cancelada oculta',
+            'fecha_primer_pago' => now()->subDay()->toDateString(),
+            'estado' => PayableStatus::Cancelado,
+        ]);
+        $futura = $this->createPayable($supplier, 100, [
+            'codigo' => 'CP-FUT-0001',
+            'concepto' => 'Futura oculta',
+            'fecha_primer_pago' => now()->addDay()->toDateString(),
+        ]);
+
+        $this->actingAs($admin)->get(route('payables.overdue'))
+            ->assertOk()
+            ->assertSee($vencida->codigo)
+            ->assertDontSee($pagada->codigo)
+            ->assertDontSee($cancelada->codigo)
+            ->assertDontSee($futura->codigo);
+    }
+
+    #[Test]
+    public function the_prima_does_not_clear_an_overdue_reminder_but_a_regular_payment_does(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supplier = $this->createSupplier();
+
+        $this->actingAs($admin)->post(route('payables.store'), [
+            'supplier_id' => $supplier->id,
+            'concepto' => 'Factura con prima',
+            'monto' => 600,
+            'fecha_emision' => now()->subDays(3)->toDateString(),
+            'fecha_primer_pago' => now()->subDay()->toDateString(),
+            'fecha_vencimiento' => now()->subDay()->toDateString(),
+            'tiene_prima' => 1,
+            'monto_prima' => 100,
+            'fecha_prima' => now()->subDays(2)->toDateString(),
+        ])->assertRedirect();
+
+        $payable = Payable::query()->firstOrFail();
+
+        $this->actingAs($admin)->get(route('payables.overdue'))
+            ->assertOk()
+            ->assertSee($payable->codigo);
+
+        $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
+            'monto' => 100,
+            'concepto' => 'Abono que mueve la fecha',
+            'fecha_pago' => now()->toDateString(),
+        ])->assertRedirect();
+
+        $payable->refresh();
+
+        $this->assertSame(1, $payable->abonos_registrados);
+        $this->assertTrue($payable->fecha_proxima_pago->gt(today()));
+
+        $this->actingAs($admin)->get(route('payables.overdue'))
+            ->assertOk()
+            ->assertDontSee($payable->codigo);
+    }
+
+    #[Test]
     public function a_consultation_user_can_view_payables_but_cannot_manage_them(): void
     {
         $user = User::factory()->create(['role' => UserRole::Consulta]);
@@ -423,6 +525,7 @@ class PayableManagementTest extends TestCase
             ->assertOk()
             ->assertSee($payable->codigo);
         $this->actingAs($user)->get(route('payables.show', $payable))->assertOk();
+        $this->actingAs($user)->get(route('payables.overdue'))->assertOk();
         $this->actingAs($user)->get(route('payable-payments.index'))->assertOk();
 
         $this->actingAs($user)->get(route('payables.create'))->assertForbidden();

@@ -12,6 +12,7 @@ use App\Services\PayableService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 
 class PayableController extends Controller
@@ -48,6 +49,45 @@ class PayableController extends Controller
                 'saldo' => max((float) ($totales->monto ?? 0) - $pagado, 0),
             ],
             'estados' => PayableStatus::options(),
+            'suppliers' => Supplier::query()->orderBy('nombre')->get(['id', 'nombre']),
+        ]);
+    }
+
+    public function overdue(Request $request): View
+    {
+        $filtros = $request->only(['q', 'proveedor']);
+
+        $obligaciones = Payable::query()
+            ->active()
+            ->with('supplier')
+            ->withSum('payments', 'monto')
+            ->withCount(['payments as abonos_count' => fn ($query) => $query->where('es_prima', false)])
+            ->search($filtros['q'] ?? null)
+            ->when($filtros['proveedor'] ?? null, fn (Builder $query, $proveedor) => $query->where('supplier_id', $proveedor))
+            ->get()
+            ->filter(fn (Payable $payable) => $payable->recordatorio_vencido)
+            ->sortBy(fn (Payable $payable) => $payable->fecha_proxima_pago)
+            ->values();
+
+        $perPage = 15;
+        $pagina = max((int) $request->integer('page', 1), 1);
+        $payables = new LengthAwarePaginator(
+            $obligaciones->forPage($pagina, $perPage)->values(),
+            $obligaciones->count(),
+            $perPage,
+            $pagina,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        return view('payables.overdue', [
+            'payables' => $payables,
+            'filtros' => $filtros,
+            'totales' => [
+                'cantidad' => $obligaciones->count(),
+                'deuda' => round($obligaciones->sum(fn (Payable $payable) => (float) $payable->monto), 2),
+                'saldo' => round($obligaciones->sum(fn (Payable $payable) => $payable->saldo_pendiente), 2),
+                'dias' => (int) $obligaciones->max(fn (Payable $payable) => $payable->fecha_proxima_pago?->diffInDays(today()) ?? 0),
+            ],
             'suppliers' => Supplier::query()->orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }

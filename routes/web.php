@@ -80,6 +80,9 @@ Route::middleware('auth')->group(function () {
             'show' => 'payables.show',
         ]);
 
+    Route::get('cuentas-por-pagar/vencidas', [PayableController::class, 'overdue'])
+        ->name('payables.overdue');
+
     Route::resource('pagos', PayablePaymentController::class)
         ->only(['index'])
         ->names(['index' => 'payable-payments.index']);
