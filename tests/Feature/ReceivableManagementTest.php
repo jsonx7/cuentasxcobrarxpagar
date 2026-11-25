@@ -184,6 +184,9 @@ class ReceivableManagementTest extends TestCase
         $this->actingAs($admin)->get(route('receivables.pdf', $receivable))
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
+        $this->actingAs($admin)->get(route('receivables.estado.pdf', $receivable))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
         $this->actingAs($admin)->get(route('reports.consolidated.pdf'))
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
@@ -203,6 +206,7 @@ class ReceivableManagementTest extends TestCase
             ->assertSee($receivable->codigo);
         $this->actingAs($user)->get(route('receivables.show', $receivable))->assertOk();
         $this->actingAs($user)->get(route('receivables.pdf', $receivable))->assertOk();
+        $this->actingAs($user)->get(route('receivables.estado.pdf', $receivable))->assertOk();
 
         $this->actingAs($user)->get(route('receivables.create'))->assertForbidden();
         $this->actingAs($user)->post(route('receivables.store'), [])->assertForbidden();

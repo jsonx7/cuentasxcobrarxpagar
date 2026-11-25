@@ -114,6 +114,28 @@ class ReceivableController extends Controller
         return $pdf->download('plan-pagos-'.$receivable->codigo.'.pdf');
     }
 
+    public function estadoPdf(Receivable $receivable, MoraService $mora): Response
+    {
+        $receivable->load([
+            'client',
+            'creator',
+            'installments',
+            'payments' => fn ($query) => $query
+                ->with(['user', 'materials.material'])
+                ->latest('fecha_pago')
+                ->latest('id'),
+        ]);
+
+        $pdf = Pdf::loadView('pdf.estado-cobrar', [
+            'receivable' => $receivable,
+            'mora' => $mora->totales($receivable, today()),
+        ])
+            ->setPaper('letter', 'landscape')
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        return $pdf->download('estado-cuenta-'.$receivable->codigo.'.pdf');
+    }
+
     public function cancel(Request $request, Receivable $receivable, ReceivableService $service): RedirectResponse
     {
         $data = $request->validate([

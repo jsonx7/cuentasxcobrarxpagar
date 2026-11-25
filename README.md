@@ -15,7 +15,7 @@ UI, validaciones y mensajes en español. El plan de amortización mensual y la m
   - El detalle incluye un **historial de pagos** con saldo posterior por abono.
   - Plan de amortización generado con la lógica mensual de `interesmoratorio.xlsx`, con vista previa en vivo.
   - Tasa de mora mensual configurable por contrato (por defecto 5 %).
-  - Contratos inmutables: se crean, se cancelan o se eliminan (sin editar). Se puede imprimir en PDF.
+  - Contratos inmutables: se crean, se cancelan o se eliminan (sin editar). Se pueden descargar el plan de pagos y el **estado de cuenta** (deuda + historial de pagos) en PDF.
 - **Abonos**:
   - En dinero, con materiales o mixtos. Cada material registra cantidad, precio unitario y monto; **no se controla inventario**.
   - Se aplican primero a las cuotas más antiguas (FIFO) o a una cuota específica, mediante `payment_allocations`.
@@ -30,6 +30,7 @@ UI, validaciones y mensajes en español. El plan de amortización mensual y la m
   - Cada pago lleva su **concepto** obligatorio, fecha, monto, método, referencia y notas.
   - Si al crear la obligación se abonó **prima o anticipo**, marca la opción e indica monto y fecha: se registra como un pago con concepto «Prima», descuenta el saldo y aparece en el historial (se puede eliminar como cualquier otro pago). La prima es un anticipo: **no mueve** la próxima fecha de pago.
   - Estados: pendiente, parcial, pagado y cancelado.
+  - El detalle permite descargar el **estado de cuenta** en PDF: total de la deuda, pagado, saldo, próxima fecha e historial de pagos con concepto.
 - **Reportes**: consolidado general (cobrar y pagar) y cuotas con mora pendiente —vencidas o ya pagadas— con días de atraso, ambos exportables a PDF. Panel con totales, próximos vencimientos y obligaciones por vencer.
 - **Usuarios y roles**:
   - `admin`: acceso total, incluida la administración de usuarios.

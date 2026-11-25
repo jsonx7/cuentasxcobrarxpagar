@@ -515,6 +515,30 @@ class PayableManagementTest extends TestCase
     }
 
     #[Test]
+    public function the_payable_status_pdf_can_be_downloaded(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $payable = $this->createPayable($this->createSupplier(), 500);
+
+        $this->actingAs($admin)->post(route('payable-payments.store', $payable), [
+            'monto' => 200,
+            'concepto' => 'Primer abono de la factura',
+            'fecha_pago' => now()->toDateString(),
+            'metodo' => PaymentMethod::Efectivo->value,
+            'referencia' => 'PAGO-PDF-1',
+        ])->assertRedirect();
+
+        $response = $this->actingAs($admin)->get(route('payables.pdf', $payable));
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+        $this->assertStringContainsString(
+            'estado-cuenta-'.$payable->codigo.'.pdf',
+            (string) $response->headers->get('content-disposition')
+        );
+    }
+
+    #[Test]
     public function a_consultation_user_can_view_payables_but_cannot_manage_them(): void
     {
         $user = User::factory()->create(['role' => UserRole::Consulta]);
@@ -525,6 +549,7 @@ class PayableManagementTest extends TestCase
             ->assertOk()
             ->assertSee($payable->codigo);
         $this->actingAs($user)->get(route('payables.show', $payable))->assertOk();
+        $this->actingAs($user)->get(route('payables.pdf', $payable))->assertOk();
         $this->actingAs($user)->get(route('payables.overdue'))->assertOk();
         $this->actingAs($user)->get(route('payable-payments.index'))->assertOk();
 

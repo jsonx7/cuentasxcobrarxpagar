@@ -57,7 +57,7 @@ php artisan migrate:fresh --seed --force      # solo local: borra y recrea la BD
 - Dockerfile multi-stage: assets con Node 22, runtime `serversideup/php:8.3-fpm-nginx`, puerto **8080**.
 - `AUTORUN_ENABLED=false`: tras desplegar ejecutar `php artisan migrate --force && php artisan db:seed --force` (el seeder es idempotente). `public/build` está en `.gitignore` y se genera dentro de la imagen.
 - Coolify: usar `.env.production.example`; `SESSION_SECURE_COOKIE=true` con HTTPS y `false` con IP/HTTP.
-- PDFs con dompdf (`barryvdh/laravel-dompdf`); las vistas PDF fuerzan `DejaVu Sans` para acentos. Consolidado y vencidas en `letter landscape`; contrato en `letter portrait`.
+- PDFs con dompdf (`barryvdh/laravel-dompdf`); las vistas PDF fuerzan `DejaVu Sans` para acentos. Consolidado, vencidas y estados de cuenta (cobrar y pagar) en `letter landscape`; contrato en `letter portrait`. `receivables.estado.pdf` (`pdf.estado-cobrar`) muestra deuda + historial de pagos con mora independiente; `payables.pdf` (`pdf.payable`) muestra deuda + historial con concepto y prima.
 
 ## Convenciones
 

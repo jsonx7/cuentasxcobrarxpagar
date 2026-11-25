@@ -66,6 +66,9 @@ Route::middleware('auth')->group(function () {
     Route::get('cuentas-por-cobrar/{receivable}/pdf', [ReceivableController::class, 'pdf'])
         ->name('receivables.pdf')
         ->whereNumber('receivable');
+    Route::get('cuentas-por-cobrar/{receivable}/estado/pdf', [ReceivableController::class, 'estadoPdf'])
+        ->name('receivables.estado.pdf')
+        ->whereNumber('receivable');
 
     Route::resource('abonos', PaymentController::class)
         ->only(['index'])
@@ -82,6 +85,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('cuentas-por-pagar/vencidas', [PayableController::class, 'overdue'])
         ->name('payables.overdue');
+
+    Route::get('cuentas-por-pagar/{payable}/pdf', [PayableController::class, 'pdf'])
+        ->name('payables.pdf')
+        ->whereNumber('payable');
 
     Route::resource('pagos', PayablePaymentController::class)
         ->only(['index'])

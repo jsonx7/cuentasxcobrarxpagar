@@ -9,9 +9,11 @@ use App\Models\Payable;
 use App\Models\PayablePayment;
 use App\Models\Supplier;
 use App\Services\PayableService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 
@@ -120,6 +122,21 @@ class PayableController extends Controller
             'payable' => $payable,
             'metodosPago' => PaymentMethod::options(),
         ]);
+    }
+
+    public function pdf(Payable $payable): Response
+    {
+        $payable->load([
+            'supplier',
+            'creator',
+            'payments' => fn ($query) => $query->with('user')->latest('fecha_pago')->latest('id'),
+        ]);
+
+        $pdf = Pdf::loadView('pdf.payable', ['payable' => $payable])
+            ->setPaper('letter', 'landscape')
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        return $pdf->download('estado-cuenta-'.$payable->codigo.'.pdf');
     }
 
     public function cancel(Request $request, Payable $payable, PayableService $service): RedirectResponse
